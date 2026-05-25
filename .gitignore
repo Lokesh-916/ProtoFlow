@@ -1,0 +1,27 @@
+.env
+.env.local
+__pycache__/
+.DS_Store
+*.pyc
+*.pyo
+.venv/
+venv/
+dist/
+build/
+*.egg-info/
+.uv/
+uv.lock
+report.md
+
+# Kiro / AI assistant files — do not commit
+AGENTS.md
+
+# Logs
+backend/logs/
+*.log
+
+# Frontend build artifacts
+frontend/node_modules/
+frontend/.next/
+frontend/out/
+frontend/dist/
