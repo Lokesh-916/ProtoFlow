@@ -1,0 +1,437 @@
+"""
+main.py — ProtoFlow FastAPI Application
+────────────────────────────────────────
+Entry point for the backend server.
+
+Routes:
+  POST /generate          — start a pipeline run, returns session_id
+  GET  /stream/{id}       — SSE stream of all pipeline events
+  POST /clarify           — resume pipeline after HITL
+  GET  /result/{id}       — full FinalOutput JSON
+  GET  /logs/{id}         — markdown log as plain text
+  GET  /health            — health check
+
+All route handlers are async. All file I/O uses aiofiles.
+All LLM calls go through OpenRouter via crewai LiteLLM routing.
+"""
+
+from __future__ import annotations
+
+import asyncio
+import json
+import logging
+import logging.config
+import os
+import sys
+import time
+import uuid
+from contextlib import asynccontextmanager
+from typing import AsyncGenerator, Optional
+
+import aiofiles
+from dotenv import load_dotenv
+from fastapi import FastAPI, HTTPException, Request
+from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import PlainTextResponse
+from pydantic import BaseModel
+from sse_starlette.sse import EventSourceResponse
+
+# ── Load .env before anything else ───────────────────────────────────────────
+load_dotenv()
+
+# ── Logging setup ─────────────────────────────────────────────────────────────
+LOG_LEVEL = os.getenv("LOG_LEVEL", "debug").upper()
+
+logging.config.dictConfig({
+    "version": 1,
+    "disable_existing_loggers": False,
+    "formatters": {
+        "detailed": {
+            "format": "%(asctime)s [%(levelname)s] %(name)s — %(message)s",
+            "datefmt": "%Y-%m-%d %H:%M:%S",
+        },
+    },
+    "handlers": {
+        "console": {
+            "class": "logging.StreamHandler",
+            "stream": "ext://sys.stdout",
+            "formatter": "detailed",
+        },
+    },
+    "root": {
+        "level": LOG_LEVEL,
+        "handlers": ["console"],
+    },
+    "loggers": {
+        "protoflow": {"level": LOG_LEVEL, "propagate": True},
+        "uvicorn": {"level": "INFO", "propagate": True},
+        "crewai": {"level": "INFO", "propagate": True},
+    },
+})
+
+logger = logging.getLogger("protoflow.main")
+
+# ── Startup model-slug validation ─────────────────────────────────────────────
+# Log a warning if the OpenRouter key is missing so it's obvious immediately.
+_OPENROUTER_KEY = os.getenv("OPENROUTER_API_KEY", "")
+if not _OPENROUTER_KEY or _OPENROUTER_KEY == "your_openrouter_api_key_here":
+    logger.warning(
+        "[startup] OPENROUTER_API_KEY is not set or is still the placeholder. "
+        "All LLM calls will fail. Set it in .env before running the pipeline."
+    )
+else:
+    logger.info("[startup] OPENROUTER_API_KEY loaded (length=%d).", len(_OPENROUTER_KEY))
+
+# Log the model slugs being used so mismatches are caught early
+_MODEL_MAP = {
+    "intent_extractor":  "openrouter/qwen/qwen3-coder:free",
+    "system_architect":  "openrouter/deepseek/deepseek-v4-flash:free",
+    "db_schema_agent":   "openrouter/deepseek/deepseek-v4-flash:free",
+    "api_schema_agent":  "openrouter/deepseek/deepseek-v4-flash:free",
+    "ui_schema_agent":   "openrouter/qwen/qwen3-coder:free",
+    "auth_agent":        "openrouter/openai/gpt-oss-20b:free",
+    "validator_agent":   "openrouter/deepseek/deepseek-v4-flash:free",
+    "repair_agent":      "openrouter/qwen/qwen3-coder:free",
+    "runtime_validator": "openrouter/openai/gpt-oss-20b:free",
+    "progress_logger":   "openrouter/openai/gpt-oss-20b:free",
+}
+logger.info("[startup] Agent model map:")
+for agent_name, model in _MODEL_MAP.items():
+    logger.info("  %-22s → %s", agent_name, model)
+
+# ── Session store ─────────────────────────────────────────────────────────────
+from compiler.crew import PipelineSession, run_pipeline
+from compiler.tools.llm_cache import llm_cache
+
+_session_store: dict[str, PipelineSession] = {}
+_session_lock = asyncio.Lock()
+SESSION_TTL = int(os.getenv("SESSION_TTL_SECONDS", "3600"))
+
+async def _get_session(session_id: str) -> PipelineSession:
+    async with _session_lock:
+        session = _session_store.get(session_id)
+    if session is None:
+        logger.warning("[main] Session not found: %s", session_id)
+        raise HTTPException(status_code=404, detail=f"Session '{session_id}' not found.")
+    return session
+
+async def _cleanup_expired_sessions() -> None:
+    """Background task: remove sessions older than SESSION_TTL."""
+    while True:
+        await asyncio.sleep(300)  # check every 5 minutes
+        now = time.monotonic()
+        async with _session_lock:
+            expired = [
+                sid for sid, s in _session_store.items()
+                if (now - s.started_at) > SESSION_TTL
+            ]
+            for sid in expired:
+                session = _session_store.pop(sid)
+                llm_cache.clear()  # clear cache on session cleanup
+                logger.info("[main] Expired session cleaned up: %s", sid)
+        if expired:
+            logger.info("[main] Cleaned up %d expired sessions.", len(expired))
+
+
+# ── Lifespan ──────────────────────────────────────────────────────────────────
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    logger.info("[startup] ProtoFlow backend starting up.")
+    cleanup_task = asyncio.create_task(_cleanup_expired_sessions())
+    yield
+    cleanup_task.cancel()
+    logger.info("[shutdown] ProtoFlow backend shutting down.")
+
+
+# ── FastAPI app ───────────────────────────────────────────────────────────────
+app = FastAPI(
+    title="ProtoFlow API",
+    description="Natural language → application schema compiler",
+    version="1.0.0",
+    lifespan=lifespan,
+)
+
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["*"],
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
+
+
+# ── Request timing middleware ─────────────────────────────────────────────────
+@app.middleware("http")
+async def timing_middleware(request: Request, call_next):
+    t0 = time.monotonic()
+    response = await call_next(request)
+    elapsed_ms = int((time.monotonic() - t0) * 1000)
+    response.headers["X-Response-Time-Ms"] = str(elapsed_ms)
+    logger.debug(
+        "[http] %s %s → %d (%dms)",
+        request.method, request.url.path, response.status_code, elapsed_ms,
+    )
+    return response
+
+
+# ── Request / Response models ─────────────────────────────────────────────────
+class GenerateRequest(BaseModel):
+    prompt: str
+
+class GenerateResponse(BaseModel):
+    session_id: str
+
+class ClarifyRequest(BaseModel):
+    session_id: str
+    answers: list[str]
+    chosen_option: Optional[str] = None
+
+class ClarifyResponse(BaseModel):
+    status: str
+
+
+# ── Routes ────────────────────────────────────────────────────────────────────
+
+@app.get("/health")
+async def health():
+    """Health check."""
+    logger.debug("[health] ping")
+    return {"status": "ok", "version": "1.0.0"}
+
+
+@app.post("/generate", response_model=GenerateResponse)
+async def generate(req: GenerateRequest):
+    """
+    Start a new pipeline run.
+    Returns session_id immediately. Client then connects to GET /stream/{session_id}.
+    """
+    if not req.prompt or not req.prompt.strip():
+        raise HTTPException(status_code=422, detail="prompt must not be empty.")
+
+    session_id = str(uuid.uuid4())
+    session = PipelineSession(session_id=session_id, prompt=req.prompt.strip())
+
+    async with _session_lock:
+        _session_store[session_id] = session
+
+    logger.info(
+        "[generate] New session created: %s prompt_length=%d",
+        session_id, len(req.prompt),
+    )
+
+    # Fire-and-forget — pipeline runs in background
+    asyncio.create_task(_run_pipeline_safe(session))
+
+    return GenerateResponse(session_id=session_id)
+
+
+async def _run_pipeline_safe(session: PipelineSession) -> None:
+    """Wrapper that catches top-level pipeline errors and emits a failed event."""
+    try:
+        await run_pipeline(session)
+    except Exception as exc:
+        logger.error(
+            "[session:%s] Pipeline crashed: %s", session.session_id, exc, exc_info=True
+        )
+        try:
+            await session.sse_queue.put({
+                "event": "pipeline_failed",
+                "session_id": session.session_id,
+                "error": str(exc),
+            })
+            await session.sse_queue.put(None)  # close stream
+        except Exception:
+            pass
+
+
+@app.get("/stream/{session_id}")
+async def stream(session_id: str, request: Request):
+    """
+    SSE stream endpoint.
+    Replays buffered events first (for reconnection), then streams live events.
+    Closes when pipeline_complete or pipeline_failed is received.
+    """
+    session = await _get_session(session_id)
+    logger.info("[stream] Client connected to session: %s", session_id)
+
+    async def event_generator() -> AsyncGenerator[dict, None]:
+        # Replay buffered events for reconnecting clients
+        for buffered_event in session.event_buffer:
+            logger.debug(
+                "[stream:%s] Replaying buffered event: %s",
+                session_id, buffered_event.get("event"),
+            )
+            yield {
+                "event": buffered_event.get("event", "message"),
+                "data": json.dumps(buffered_event),
+            }
+
+        # Stream live events
+        while True:
+            if await request.is_disconnected():
+                logger.info("[stream:%s] Client disconnected.", session_id)
+                break
+
+            try:
+                event = await asyncio.wait_for(session.sse_queue.get(), timeout=30.0)
+            except asyncio.TimeoutError:
+                # Send keepalive comment
+                yield {"event": "ping", "data": "keepalive"}
+                continue
+
+            if event is None:
+                # Pipeline signalled completion
+                logger.info("[stream:%s] Stream closing (pipeline done).", session_id)
+                break
+
+            event_type = event.get("event", "message")
+            logger.debug("[stream:%s] Streaming event: %s", session_id, event_type)
+            yield {
+                "event": event_type,
+                "data": json.dumps(event),
+            }
+
+            if event_type in ("pipeline_complete", "pipeline_failed"):
+                break
+
+    return EventSourceResponse(event_generator())
+
+
+@app.post("/clarify", response_model=ClarifyResponse)
+async def clarify(req: ClarifyRequest):
+    """
+    Resume a pipeline that is waiting for HITL input.
+    Sets the asyncio.Event to unblock the pipeline.
+    """
+    session = await _get_session(req.session_id)
+    logger.info(
+        "[clarify] Received answers for session %s: %s",
+        req.session_id, req.answers,
+    )
+    session.resume_hitl(answers=req.answers, chosen_option=req.chosen_option)
+    return ClarifyResponse(status="resumed")
+
+
+@app.get("/result/{session_id}")
+async def result(session_id: str):
+    """Return the complete FinalOutput JSON for a completed session."""
+    session = await _get_session(session_id)
+
+    if session.runtime_report is None:
+        logger.warning(
+            "[result] Session %s pipeline not yet complete.", session_id
+        )
+        raise HTTPException(
+            status_code=202,
+            detail="Pipeline not yet complete. Poll /stream for progress.",
+        )
+
+    logger.info("[result] Returning result for session: %s", session_id)
+    return {
+        "session_id": session_id,
+        "prompt": session.prompt,
+        "intent": session.intent,
+        "architecture": session.architecture,
+        "db_schema": session.db_schema,
+        "api_schema": session.api_schema,
+        "ui_schema": session.ui_schema,
+        "auth_schema": session.auth_schema,
+        "validation_report": session.validation_report,
+        "repair_report": session.repair_report,
+        "runtime_report": session.runtime_report,
+        "mermaid_diagrams": {
+            "pipeline_flow": (session.log_output or {}).get("mermaid_pipeline", ""),
+            "er_diagram": (session.log_output or {}).get("mermaid_er", ""),
+            "api_sequence": (session.log_output or {}).get("mermaid_sequence", ""),
+        },
+        "eval_metrics": {
+            "total_latency_ms": session.elapsed_ms(),
+            "total_tokens": session.total_tokens,
+            "repair_count": session.repair_count,
+            "hitl_count": session.hitl_count,
+            "stage_latencies": session.stage_latencies,
+            "cache_stats": llm_cache.stats(),
+        },
+    }
+
+
+@app.get("/logs/{session_id}", response_class=PlainTextResponse)
+async def logs(session_id: str):
+    """Return the markdown log file for a session as plain text."""
+    session = await _get_session(session_id)
+    log_path = f"backend/logs/run_{session_id}.md"
+
+    try:
+        async with aiofiles.open(log_path, "r", encoding="utf-8") as f:
+            content = await f.read()
+        logger.debug("[logs] Returning log file for session: %s", session_id)
+        return content
+    except FileNotFoundError:
+        logger.warning("[logs] Log file not found for session: %s", session_id)
+        # Fall back to in-memory log entries
+        log_out = session.log_output or {}
+        entries = log_out.get("log_entries", [])
+        if entries:
+            return "\n\n".join(
+                json.dumps(e, indent=2) if isinstance(e, dict) else str(e)
+                for e in entries
+            )
+        return f"# Log for session {session_id}\n\nNo log file found yet."
+
+
+# ── Legacy crewai entry points (kept for `crewai run` compatibility) ──────────
+
+def run():
+    """Run the crew directly (legacy crewai CLI entry point)."""
+    from compiler.crew import ProtoFlowCrew
+    logger.info("[run] Starting ProtoFlow crew via legacy entry point.")
+    inputs = {"user_prompt": "Build a CRM with contacts, deals, and roles."}
+    ProtoFlowCrew().crew().kickoff(inputs=inputs)
+
+
+def serve():
+    """Start the FastAPI server with uvicorn."""
+    import uvicorn
+    host = os.getenv("HOST", "0.0.0.0")
+    port = int(os.getenv("PORT", "8000"))
+    log_level = os.getenv("LOG_LEVEL", "info").lower()
+    logger.info("[serve] Starting uvicorn on %s:%d", host, port)
+    uvicorn.run("compiler.main:app", host=host, port=port, log_level=log_level, reload=True)
+
+
+def train():
+    import sys
+    from compiler.crew import ProtoFlowCrew
+    inputs = {"user_prompt": "Build a project management tool."}
+    ProtoFlowCrew().crew().train(
+        n_iterations=int(sys.argv[1]), filename=sys.argv[2], inputs=inputs
+    )
+
+
+def replay():
+    import sys
+    from compiler.crew import ProtoFlowCrew
+    ProtoFlowCrew().crew().replay(task_id=sys.argv[1])
+
+
+def test():
+    import sys
+    from compiler.crew import ProtoFlowCrew
+    inputs = {"user_prompt": "Build an e-commerce platform."}
+    ProtoFlowCrew().crew().test(
+        n_iterations=int(sys.argv[1]), eval_llm=sys.argv[2], inputs=inputs
+    )
+
+
+def run_with_trigger():
+    import sys
+    import json as _json
+    if len(sys.argv) < 2:
+        raise Exception("No trigger payload provided.")
+    payload = _json.loads(sys.argv[1])
+    from compiler.crew import ProtoFlowCrew
+    return ProtoFlowCrew().crew().kickoff(inputs={"crewai_trigger_payload": payload})
+
+
+if __name__ == "__main__":
+    serve()
