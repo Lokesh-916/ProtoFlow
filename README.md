@@ -43,6 +43,29 @@ This example, unmodified, will run the create a `report.md` file with the output
 
 The compiler Crew is composed of multiple AI agents, each with unique roles, goals, and tools. These agents collaborate on a series of tasks, defined in `config/tasks.yaml`, leveraging their collective skills to achieve complex objectives. The `config/agents.yaml` file outlines the capabilities and configurations of each agent in your crew.
 
+## Evaluation Framework
+
+ProtoFlow includes a manual, one-prompt-at-a-time evaluation framework that logs pipeline metrics (latency, token usage, repair loops, HITL triggers) and gathers human pass/fail judgments.
+
+### Running Evaluations
+
+1. Start the backend:
+   ```bash
+   uv run serve
+   ```
+2. Start the frontend:
+   ```bash
+   cd frontend
+   npm run dev
+   ```
+3. Navigate to `http://localhost:5173/eval` to access the Evaluation Dashboard.
+
+### Features
+- **Summary Metrics**: Real-time pass rates, average token usage, average latency, and HITL trigger rates.
+- **Interactive Visualizations**: Donut chart of pass/fail ratios, latencies by difficulty, and repair loops.
+- **Bulk Runner**: Sequential automatic execution of all unrun test prompts.
+- **Judgment Modal**: Ability to score runs, add qualitative notes, and categorize failures.
+
 ## Support
 
 For support, questions, or feedback regarding the Compiler Crew or crewAI.
