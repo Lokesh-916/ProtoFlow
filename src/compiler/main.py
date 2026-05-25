@@ -159,6 +159,10 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
+from compiler.eval.runner import eval_router
+app.include_router(eval_router)
+
+
 
 # ── Request timing middleware ─────────────────────────────────────────────────
 @app.middleware("http")
