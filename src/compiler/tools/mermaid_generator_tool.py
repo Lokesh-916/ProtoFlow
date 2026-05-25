@@ -77,11 +77,11 @@ def generate_pipeline_flow(data: dict) -> str:
 
         # Node shape based on status
         if status == "failed":
-            node_def = f'    {node_id}["{name} ❌"]'
+            node_def = f'    {node_id}["{name} [FAILED]"]'
         elif hitl:
-            node_def = f'    {node_id}{{"{name} 🙋 HITL"}}'
+            node_def = f'    {node_id}{{"{name} [HITL]"}}'
         elif repair:
-            node_def = f'    {node_id}["{name} 🔧 Repair"]'
+            node_def = f'    {node_id}["{name} [REPAIR]"]'
         else:
             node_def = f'    {node_id}["{name}"]'
 
