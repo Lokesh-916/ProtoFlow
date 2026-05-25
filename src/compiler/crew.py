@@ -464,22 +464,40 @@ async def run_pipeline(session: PipelineSession) -> None:
     # ── Helper: kick off a single CrewAI task and parse JSON output ───────────
     async def _kickoff_task(task_name: str, inputs: dict) -> dict:
         """
-        Run a single task by kicking off the full crew with the given inputs,
-        then extract the JSON from the last task's output.
-
-        NOTE: CrewAI 1.14.x does not support single-task kickoff on a @CrewBase
-        class directly. We kick off the full crew but only use the relevant
-        task output. This is the correct pattern per AGENTS.md.
+        Run a single task by creating a temporary single-task Crew.
+        This avoids executing all tasks in the sequential crew and prevents
+        concurrency issues during parallel stage execution.
         """
         logger.debug(
             "[session:%s] _kickoff_task: %s inputs_keys=%s",
             session.session_id, task_name, list(inputs.keys()),
         )
+        
+        task_config = crew_instance.tasks_config[task_name]
+        agent_name = task_config.get("agent")
+        
+        agent = None
+        if agent_name:
+            agent_creator = getattr(crew_instance, agent_name, None)
+            if agent_creator:
+                agent = agent_creator()
+                
+        task_creator = getattr(crew_instance, task_name)
+        task = task_creator()
+        if agent:
+            task.agent = agent
+            
+        temp_crew = Crew(
+            agents=[agent] if agent else [],
+            tasks=[task],
+            verbose=True
+        )
+
         # Run in a thread pool to avoid blocking the event loop
         loop = asyncio.get_event_loop()
         result = await loop.run_in_executor(
             None,
-            lambda: crew_instance.crew().kickoff(inputs=inputs),
+            lambda: temp_crew.kickoff(inputs=inputs),
         )
         raw = result.raw if hasattr(result, "raw") else str(result)
         logger.debug(
