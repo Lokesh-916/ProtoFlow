@@ -614,7 +614,7 @@ async def run_pipeline(session: PipelineSession) -> None:
 
     session.intent = await _run_stage(
         session, "intent_extraction",
-        "groq/llama-3.1-8b-instant", _stage_intent()
+        "groq/llama-3.3-70b-versatile", _stage_intent()
     )
 
     # ─────────────────────────────────────────────────────────────────────────
@@ -639,7 +639,7 @@ async def run_pipeline(session: PipelineSession) -> None:
 
     session.architecture = await _run_stage(
         session, "architecture_design",
-        "groq/llama-3.1-8b-instant", _stage_architecture()
+        "groq/llama-3.3-70b-versatile", _stage_architecture()
     )
 
     # ─────────────────────────────────────────────────────────────────────────
@@ -728,10 +728,10 @@ async def run_pipeline(session: PipelineSession) -> None:
         })
         return result
 
-    db_result = await _run_schema_stage("db_schema", _stage_db, "groq/llama-3.1-8b-instant")
-    api_result = await _run_schema_stage("api_schema", _stage_api, "groq/llama-3.1-8b-instant")
-    ui_result = await _run_schema_stage("ui_schema", _stage_ui, "groq/llama-3.1-8b-instant")
-    auth_result = await _run_schema_stage("auth_schema", _stage_auth, "groq/llama-3.1-8b-instant")
+    db_result = await _run_schema_stage("db_schema", _stage_db, "groq/llama-3.3-70b-versatile")
+    api_result = await _run_schema_stage("api_schema", _stage_api, "groq/llama-3.3-70b-versatile")
+    ui_result = await _run_schema_stage("ui_schema", _stage_ui, "groq/llama-3.3-70b-versatile")
+    auth_result = await _run_schema_stage("auth_schema", _stage_auth, "groq/llama-3.3-70b-versatile")
 
     # ─────────────────────────────────────────────────────────────────────────
     # STAGE 4 + 5 — Validation + Repair loop
@@ -770,7 +770,7 @@ async def run_pipeline(session: PipelineSession) -> None:
 
         validation = await _run_stage(
             session, "validation",
-            "groq/llama-3.1-8b-instant", _stage_validate()
+            "groq/llama-3.3-70b-versatile", _stage_validate()
         )
 
         if validation.get("is_valid", False):
@@ -788,7 +788,7 @@ async def run_pipeline(session: PipelineSession) -> None:
         await _emit(session, "stage_update", {
             "stage": "validation",
             "status": "repair_triggered",
-            "model": "groq/llama-3.1-8b-instant",
+            "model": "groq/llama-3.3-70b-versatile",
             "latency_ms": session.stage_latencies.get("validation", 0),
             "output_summary": f"{len(errors)} errors found",
             "conflicts": [e.get("description", "") for e in validation.get("conflicts", [])],
@@ -850,7 +850,7 @@ async def run_pipeline(session: PipelineSession) -> None:
 
         await _run_stage(
             session, "repair",
-            "groq/llama-3.1-8b-instant", _stage_repair()
+            "groq/llama-3.3-70b-versatile", _stage_repair()
         )
 
         # Rebuild for next validation pass
@@ -886,7 +886,7 @@ async def run_pipeline(session: PipelineSession) -> None:
 
     await _run_stage(
         session, "runtime_validation",
-        "groq/llama-3.1-8b-instant", _stage_runtime()
+        "groq/llama-3.3-70b-versatile", _stage_runtime()
     )
 
     # ─────────────────────────────────────────────────────────────────────────
@@ -921,7 +921,7 @@ async def run_pipeline(session: PipelineSession) -> None:
 
     await _run_stage(
         session, "logging",
-        "groq/llama-3.1-8b-instant", _stage_logging()
+        "groq/llama-3.3-70b-versatile", _stage_logging()
     )
 
     # ─────────────────────────────────────────────────────────────────────────
