@@ -81,7 +81,6 @@ class ProtoFlowCrew:
         logger.debug("[crew] Building intent_extractor agent.")
         return Agent(
             config=self.agents_config["intent_extractor"],  # type: ignore[index]
-            tools=[self._json_repair_tool],
             verbose=True,
         )
 
@@ -90,7 +89,6 @@ class ProtoFlowCrew:
         logger.debug("[crew] Building system_architect agent.")
         return Agent(
             config=self.agents_config["system_architect"],  # type: ignore[index]
-            tools=[self._json_repair_tool],
             verbose=True,
         )
 
@@ -99,7 +97,6 @@ class ProtoFlowCrew:
         logger.debug("[crew] Building db_schema_agent agent.")
         return Agent(
             config=self.agents_config["db_schema_agent"],  # type: ignore[index]
-            tools=[self._json_repair_tool],
             verbose=True,
         )
 
@@ -108,7 +105,6 @@ class ProtoFlowCrew:
         logger.debug("[crew] Building api_schema_agent agent.")
         return Agent(
             config=self.agents_config["api_schema_agent"],  # type: ignore[index]
-            tools=[self._json_repair_tool],
             verbose=True,
         )
 
@@ -117,7 +113,6 @@ class ProtoFlowCrew:
         logger.debug("[crew] Building ui_schema_agent agent.")
         return Agent(
             config=self.agents_config["ui_schema_agent"],  # type: ignore[index]
-            tools=[self._json_repair_tool],
             verbose=True,
         )
 
@@ -126,7 +121,6 @@ class ProtoFlowCrew:
         logger.debug("[crew] Building auth_agent agent.")
         return Agent(
             config=self.agents_config["auth_agent"],  # type: ignore[index]
-            tools=[self._json_repair_tool],
             verbose=True,
         )
 
@@ -135,7 +129,7 @@ class ProtoFlowCrew:
         logger.debug("[crew] Building validator_agent agent.")
         return Agent(
             config=self.agents_config["validator_agent"],  # type: ignore[index]
-            tools=[self._json_repair_tool],
+            tools=[self._schema_diff_tool],
             verbose=True,
         )
 
@@ -144,7 +138,7 @@ class ProtoFlowCrew:
         logger.debug("[crew] Building repair_agent agent.")
         return Agent(
             config=self.agents_config["repair_agent"],  # type: ignore[index]
-            tools=[self._json_repair_tool, self._schema_diff_tool],
+            tools=[self._schema_diff_tool],
             verbose=True,
         )
 
@@ -153,7 +147,6 @@ class ProtoFlowCrew:
         logger.debug("[crew] Building runtime_validator agent.")
         return Agent(
             config=self.agents_config["runtime_validator"],  # type: ignore[index]
-            tools=[self._json_repair_tool],
             verbose=True,
         )
 
