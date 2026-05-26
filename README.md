@@ -1,200 +1,208 @@
-# ProtoFlow — AI-Powered Application Schema Compiler
+# ProtoFlow
 
-> **Natural language → structured config → validated → executable → working application blueprint**
+**Natural language → validated, executable application schema**
 
-ProtoFlow is a multi-agent AI compiler that converts open-ended natural language instructions into strict, complete, and validated application configurations. It generates production-ready schemas for UI, API, Database, and Auth systems — then validates cross-layer consistency and repairs any conflicts automatically.
+ProtoFlow is a multi-agent AI pipeline that takes a plain-English description of an application and produces a complete, cross-validated JSON schema covering every layer of the stack — database, REST API, UI, authentication, and business logic.
 
-## ⚡ Key Features
+---
 
-| Feature | Description |
-|---------|-------------|
-| **Multi-Stage Pipeline** | 10 specialized AI agents in sequence: Intent → Architecture → DB/API/UI/Auth (parallel) → Validation → Repair → Runtime Simulation → Logging |
-| **Strict Schema Enforcement** | 25+ Pydantic models with typed fields, constraints, and cross-layer traceability |
-| **Validation + Repair Engine** | 12-point cross-layer validation checklist with automatic surgical repair (max 3 attempts) |
-| **Human-in-the-Loop (HITL)** | Always-on clarification at intent stage, with escalation after repair failures |
-| **Real-Time Streaming** | Server-Sent Events (SSE) with per-stage status updates, latency, and confidence scores |
-| **Mermaid Diagrams** | Auto-generated pipeline flow, ER diagram, and API sequence diagrams |
-| **Evaluation Framework** | 20 test prompts (10 real, 10 adversarial) with metrics dashboard at `/eval` |
-| **LLM Response Caching** | In-memory LRU cache to avoid redundant API calls across repair loops |
+## What it does
 
-## 🏗️ Architecture
+You type: *"Build a CRM with contacts, deals, role-based access, and a premium analytics plan"*
+
+ProtoFlow runs a 10-agent pipeline and returns:
+
+- **Database schema** — normalised tables, columns, foreign keys, indexes, soft-delete
+- **REST API schema** — full CRUD endpoints, request/response bodies mapped to DB columns, auth requirements
+- **UI schema** — pages, components, forms, navigation, role-gated views
+- **Auth schema** — JWT strategy, roles, permissions matrix, premium plan gates
+- **Validation report** — cross-layer consistency check across all 12 rules
+- **Runtime report** — simulated CRUD flow proving the schema is executable
+- **Mermaid diagrams** — pipeline flow, ER diagram, API sequence diagram
+
+---
+
+## Architecture
 
 ```
 User Prompt
     │
     ▼
-┌─────────────────────┐
-│  Intent Extraction   │  ← HITL always-on (asks clarifying questions)
-│  (qwen3-coder)       │
-└─────────┬───────────┘
-          │
-          ▼
-┌─────────────────────┐
-│  System Architect    │  ← Entities, Relations, Business Rules
-│  (deepseek-v4-flash) │
-└─────────┬───────────┘
-          │
-    ┌─────┼─────┬─────┐
-    ▼     ▼     ▼     ▼
-  ┌───┐ ┌───┐ ┌───┐ ┌────┐
-  │DB │ │API│ │UI │ │Auth│   ← Parallel fan-out via asyncio.gather
-  └─┬─┘ └─┬─┘ └─┬─┘ └─┬──┘
-    └─────┼─────┼─────┘
-          ▼
-┌─────────────────────┐
-│  Cross-Layer         │  ← 12-point validation checklist
-│  Validator           │
-└─────────┬───────────┘
-          │ (if errors)
-          ▼
-┌─────────────────────┐
-│  Repair Agent        │  ← Surgical fixes, max 3 loops
-│  + HITL escalation   │  ← Asks human after 2 failed attempts
-└─────────┬───────────┘
-          ▼
-┌─────────────────────┐
-│  Runtime Validator   │  ← Simulates full CRUD flows
-└─────────┬───────────┘
-          ▼
-┌─────────────────────┐
-│  Progress Logger     │  ← Mermaid diagrams + log entries
-└─────────┬───────────┘
-          ▼
-    Final Schema Output
-    (JSON + Mermaid + Metrics)
+┌─────────────────────────────────────────────────────────┐
+│  Stage 1: Intent Extraction          (HITL always-on)   │
+│  Stage 2: Architecture Design                           │
+│  Stage 3: DB + API + UI + Auth       (parallel)         │
+│  Stage 4: Cross-layer Validation                        │
+│  Stage 5: Surgical Repair Loop       (max 3 attempts)   │
+│  Stage 6: Runtime Simulation                            │
+│  Stage 7: Logging + Mermaid Diagrams                    │
+└─────────────────────────────────────────────────────────┘
+    │
+    ▼
+Complete FinalOutput JSON + SSE stream to frontend
 ```
 
-## 🚀 Quick Start
+**Tech stack:**
+- Backend: Python, FastAPI, CrewAI 1.14.5, Groq (llama-3.3-70b-versatile)
+- Frontend: React, Vite, TypeScript, Tailwind CSS, Lucide icons
+- LLM routing: Groq free tier — 1K RPM, 300K TPM, no rate limit issues
 
-### Prerequisites
-- Python ≥ 3.10, < 3.14
-- Node.js ≥ 18
-- [uv](https://docs.astral.sh/uv/) package manager
+---
 
-### Setup
-
-1. **Clone and install Python dependencies:**
-```bash
-git clone <repo-url>
-cd compiler
-uv sync
-```
-
-2. **Configure environment:**
-```bash
-cp .env.example .env
-# Edit .env and add your OPENROUTER_API_KEY
-```
-
-3. **Install frontend dependencies:**
-```bash
-cd frontend
-npm install
-```
-
-### Running
-
-**Start the backend:**
-```bash
-uv run serve
-```
-The API server starts at `http://localhost:8000`. API docs available at `http://localhost:8000/docs`.
-
-**Start the frontend (in a separate terminal):**
-```bash
-cd frontend
-npm run dev
-```
-The UI opens at `http://localhost:5173`.
-
-## 📁 Project Structure
+## Project structure
 
 ```
 compiler/
 ├── src/compiler/
 │   ├── config/
-│   │   ├── agents.yaml          # 10 agent definitions with roles & models
-│   │   └── tasks.yaml           # 10 task definitions with prompts & schemas
-│   ├── schemas/
-│   │   └── contracts.py         # 25+ Pydantic models (707 lines)
-│   ├── tools/
-│   │   ├── json_repair_tool.py  # 4-step JSON extraction + repair
-│   │   ├── schema_diff_tool.py  # Field-level before/after diffs
-│   │   ├── mermaid_generator_tool.py # Pipeline, ER, API diagrams
-│   │   └── llm_cache.py         # LRU response cache with TTL
+│   │   ├── agents.yaml        # All 10 agent definitions (Groq, max_rpm=5)
+│   │   └── tasks.yaml         # All 10 task definitions with HITL and async flags
 │   ├── eval/
-│   │   ├── prompts.json         # 20 evaluation test prompts
-│   │   ├── runner.py            # Eval API routes
-│   │   └── recorder.py          # Metrics + log recording
-│   ├── crew.py                  # Pipeline orchestrator (914 lines)
-│   └── main.py                  # FastAPI app + routes
+│   │   ├── runner.py          # Eval router — 20 test prompts, auto-metrics
+│   │   ├── recorder.py        # Records pipeline metrics to eval_results.json
+│   │   └── prompts.json       # 20 prompts: 10 real-world, 10 edge cases
+│   ├── schemas/
+│   │   └── contracts.py       # Pydantic models for all pipeline schemas
+│   ├── tools/
+│   │   ├── json_repair_tool.py    # Strips markdown fences, extracts JSON
+│   │   ├── schema_diff_tool.py    # Before/after diff for repair agent
+│   │   ├── mermaid_generator_tool.py  # Generates Mermaid diagram strings
+│   │   └── llm_cache.py           # In-process LRU cache for LLM responses
+│   ├── crew.py                # Pipeline orchestrator, repair loop, HITL, SSE
+│   └── main.py                # FastAPI app — all routes
 ├── frontend/
 │   ├── src/
-│   │   ├── pages/               # HomePage, GeneratePage, ResultsPage, EvalPage
-│   │   ├── components/          # StageCard, SchemaViewer, MermaidDiagram, etc.
-│   │   ├── api/                 # API client + SSE hook
-│   │   └── index.css            # Tailwind + custom design system
-│   └── tailwind.config.js       # Custom canvas/terra/sage palette
-├── backend/logs/                # Runtime pipeline logs (gitignored)
-├── .env.example                 # Environment variable template
-└── pyproject.toml               # Python dependencies
+│   │   ├── pages/             # HomePage, GeneratePage, ResultsPage
+│   │   ├── components/        # StageCard, PipelineProgress, HITLModal, etc.
+│   │   ├── hooks/             # useSSE — SSE connection with auto-reconnect
+│   │   └── api/               # client.ts, types.ts
+│   └── ...
+├── .env                       # Real keys (gitignored)
+├── .env.example               # Template
+└── pyproject.toml
 ```
 
-## 🧪 Evaluation Framework
+---
 
-ProtoFlow includes a manual evaluation framework with 20 test prompts:
+## Setup
 
-| Category | Count | Examples |
-|----------|-------|---------|
-| Real-world | 10 | CRM, E-commerce, Healthcare, SaaS, LMS, Project Management |
-| Edge cases | 10 | Empty intent, self-contradictory auth, extreme scope, privacy contradictions |
+### Prerequisites
+- Python 3.10–3.13
+- Node.js 18+
+- [uv](https://docs.astral.sh/uv/) — `pip install uv`
+- Free Groq API key — [console.groq.com](https://console.groq.com)
 
-### Running Evaluations
-1. Start both backend and frontend
-2. Navigate to `http://localhost:5173/eval`
-3. Run prompts one at a time or use "Run All Unrun" for sequential execution
-4. Judge each result as Pass / Partial / Fail with notes
-5. Export results as JSON for analysis
+### 1. Clone and install backend
 
-### Dashboard Features
-- Summary stat cards (pass rate, avg latency, avg tokens, HITL rate)
-- Interactive charts (pass/fail donut, latency by difficulty, repair loops)
-- Filterable prompts table with expandable details
-- Judgment modal with failure categorization
+```bash
+git clone https://github.com/Lokesh-916/ProtoFlow.git
+cd ProtoFlow
+uv sync
+```
 
-## 🔧 API Reference
+### 2. Configure environment
 
-| Method | Endpoint | Description |
-|--------|----------|-------------|
-| POST | `/generate` | Start a pipeline run |
-| GET | `/stream/{session_id}` | SSE stream of pipeline events |
-| POST | `/clarify` | Submit HITL answers |
-| GET | `/result/{session_id}` | Full schema output JSON |
-| GET | `/logs/{session_id}` | Pipeline log (markdown) |
-| GET | `/health` | Health check |
-| GET | `/eval/prompts` | List all 20 eval prompts |
-| POST | `/eval/run/{prompt_id}` | Run pipeline for eval prompt |
-| POST | `/eval/record/{prompt_id}` | Record human judgment |
-| GET | `/eval/results` | Summary statistics |
-| GET | `/eval/export` | Download eval_results.json |
+```bash
+cp .env.example .env
+# Edit .env and set GROQ_API_KEY=your_key_here
+```
 
-## 🤖 Agent Model Configuration
+### 3. Install frontend
 
-All agents use free-tier models via [OpenRouter](https://openrouter.ai):
+```bash
+cd frontend
+npm install
+cp .env.local.example .env.local
+# VITE_API_URL=http://localhost:8000 is already set
+```
 
-| Agent | Model | Role |
-|-------|-------|------|
-| Intent Extractor | qwen/qwen3-coder:free | Parse natural language → structured intent |
-| System Architect | deepseek/deepseek-v4-flash:free | Design application architecture |
-| DB Schema Agent | deepseek/deepseek-v4-flash:free | Generate database tables + relations |
-| API Schema Agent | deepseek/deepseek-v4-flash:free | Generate REST API endpoints |
-| UI Schema Agent | qwen/qwen3-coder:free | Generate pages + components + forms |
-| Auth Agent | openai/gpt-oss-20b:free | Generate roles + permissions + plans |
-| Validator | deepseek/deepseek-v4-flash:free | Cross-layer consistency checks |
-| Repair Agent | qwen/qwen3-coder:free | Surgical schema fixes |
-| Runtime Validator | openai/gpt-oss-20b:free | Simulate execution flows |
-| Progress Logger | openai/gpt-oss-20b:free | Mermaid diagrams + logs |
+---
 
-## 📝 License
+## Running
 
-MIT
+**Terminal 1 — Backend:**
+```bash
+uv run uvicorn compiler.main:app --host 0.0.0.0 --port 8000 --reload
+```
+
+**Terminal 2 — Frontend:**
+```bash
+cd frontend
+npm run dev
+```
+
+Open **http://localhost:5173**
+
+---
+
+## API routes
+
+| Method | Route | Description |
+|--------|-------|-------------|
+| `POST` | `/generate` | Start pipeline, returns `session_id` |
+| `GET`  | `/stream/{session_id}` | SSE stream of all pipeline events |
+| `POST` | `/clarify` | Resume pipeline after HITL input |
+| `GET`  | `/result/{session_id}` | Full FinalOutput JSON |
+| `GET`  | `/logs/{session_id}` | Markdown log as plain text |
+| `GET`  | `/health` | Health check |
+| `GET`  | `/eval/prompts` | List all 20 eval prompts with status |
+| `POST` | `/eval/run/{id}` | Run a specific eval prompt (skips HITL) |
+| `GET`  | `/eval/results` | Aggregated eval results and stats |
+
+Interactive docs: **http://localhost:8000/docs**
+
+---
+
+## Testing with curl
+
+```bash
+# Start a pipeline run
+curl -X POST http://localhost:8000/generate \
+  -H "Content-Type: application/json" \
+  -d '{"prompt": "CRM with contacts, deals, roles, and analytics"}'
+# Returns: {"session_id": "..."}
+
+# Run eval prompt #1 (no HITL, auto-records metrics)
+curl -X POST http://localhost:8000/eval/run/1
+```
+
+---
+
+## SSE event types
+
+| Event | When |
+|-------|------|
+| `stage_update` | After each stage starts, completes, fails, or triggers repair |
+| `hitl_required` | Pipeline paused — user input needed |
+| `log_update` | New log entry from progress_logger |
+| `pipeline_complete` | All stages done — includes final schema and Mermaid diagrams |
+| `pipeline_failed` | Unrecoverable error |
+
+---
+
+## LLM configuration
+
+All 10 agents use **Groq — llama-3.3-70b-versatile** (free tier).
+
+| Limit | Value | Pipeline usage |
+|-------|-------|----------------|
+| RPM | 1,000 | ~15-20 calls per run |
+| TPM | 300,000 | ~50-100K tokens per run |
+
+`max_rpm: 5` is set in `agents.yaml` as a conservative throttle. A single Groq key handles the full pipeline without hitting limits.
+
+---
+
+## Eval framework
+
+ProtoFlow includes a built-in evaluation framework with 20 prompts:
+- 10 real-world prompts (CRM, e-commerce, healthcare, SaaS, etc.)
+- 10 edge cases (empty intent, contradictions, extreme scope, ambiguity)
+
+Run all 20 via the `/eval/run/{id}` endpoint. Results are recorded to `src/compiler/eval/eval_results.json` with auto-metrics (latency, tokens, repair count, HITL triggers) and support for human judgment annotations.
+
+---
+
+## Built by
+
+Lokesh — [github.com/Lokesh-916](https://github.com/Lokesh-916)

@@ -1,17 +1,19 @@
 ﻿# ProtoFlow Agent Definitions
-# All agents use OpenRouter via crewai LiteLLM routing.
-# Model strings are passed VERBATIM - do NOT change them.
+# All agents use Groq via crewai LiteLLM routing.
+# Model: llama-3.3-70b-versatile on Groq free tier
+#
+# Groq free tier limits: 1K RPM, 300K TPM
+# This pipeline makes ~15-20 LLM calls total per run (~50-100K tokens).
+# A single Groq key is sufficient - no second key needed.
 #
 # MEMORY: All agents use memory: false
 #   Reason: CrewAI memory requires OpenAI embeddings (ChromaDB).
-#   We only have an OpenRouter key, not a direct OpenAI key.
 #   Context is passed between stages via task context[] in tasks.yaml instead.
-#   This is more reliable for a deterministic pipeline anyway.
 #
-# CACHING: cache: true on schema-generating agents to avoid redundant tool calls.
+# CACHING: cache: true on schema-generating agents to skip redundant tool calls.
 #
-# RATE LIMITING: max_rpm set per agent to stay within OpenRouter free tier limits.
-#   Free tier: ~3-5 RPM per model. Sequential pipeline means one call at a time.
+# max_rpm: 5 - conservative throttle well within Groq's 1K RPM limit.
+#   This prevents burst hammering and keeps calls evenly spaced.
 
 intent_extractor:
   role: >
@@ -24,11 +26,11 @@ intent_extractor:
     business ideas into precise technical requirements. You have a gift for
     spotting hidden assumptions and asking exactly the right question to
     surface them. You never proceed without confirming scope with the user.
-  llm: openrouter/qwen/qwen3-coder:free
+  llm: groq/llama-3.3-70b-versatile
   verbose: true
   allow_delegation: false
   max_iter: 3
-  max_rpm: 3
+  max_rpm: 5
   memory: false
   cache: true
 
@@ -43,11 +45,11 @@ system_architect:
     You are a principal engineer who has designed dozens of SaaS products
     from scratch. You think in layers - data, API, UI, auth - and you
     always document every assumption so downstream agents have no ambiguity.
-  llm: openrouter/deepseek/deepseek-v4-flash:free
+  llm: groq/llama-3.3-70b-versatile
   verbose: true
   allow_delegation: false
   max_iter: 3
-  max_rpm: 3
+  max_rpm: 5
   memory: false
   cache: true
 
@@ -62,11 +64,11 @@ db_schema_agent:
     You are a database architect who has modelled schemas for high-traffic
     applications. You never invent columns that were not in the architecture,
     and you always add id, created_at, updated_at, and soft_deleted_at.
-  llm: openrouter/deepseek/deepseek-v4-flash:free
+  llm: groq/llama-3.3-70b-versatile
   verbose: true
   allow_delegation: false
   max_iter: 3
-  max_rpm: 3
+  max_rpm: 5
   memory: false
   cache: true
 
@@ -80,11 +82,11 @@ api_schema_agent:
     You are an API architect who has written OpenAPI specs for enterprise
     platforms. You are obsessive about field-level traceability - every
     field in a request body must exist in the database.
-  llm: openrouter/deepseek/deepseek-v4-flash:free
+  llm: groq/llama-3.3-70b-versatile
   verbose: true
   allow_delegation: false
   max_iter: 3
-  max_rpm: 3
+  max_rpm: 5
   memory: false
   cache: true
 
@@ -99,11 +101,11 @@ ui_schema_agent:
     You are a frontend architect who thinks in component trees and user
     flows. You never add a UI element that does not have a corresponding
     API call, and you always respect role-based access control.
-  llm: openrouter/qwen/qwen3-coder:free
+  llm: groq/llama-3.3-70b-versatile
   verbose: true
   allow_delegation: false
   max_iter: 3
-  max_rpm: 3
+  max_rpm: 5
   memory: false
   cache: true
 
@@ -118,11 +120,11 @@ auth_agent:
     You are a security engineer who has implemented auth systems for
     fintech and healthcare products. You never leave a role undefined,
     and you always map every permission to a specific resource and action.
-  llm: openrouter/openai/gpt-oss-20b:free
+  llm: groq/llama-3.3-70b-versatile
   verbose: true
   allow_delegation: false
   max_iter: 3
-  max_rpm: 3
+  max_rpm: 5
   memory: false
   cache: true
 
@@ -137,11 +139,11 @@ validator_agent:
     You are a QA architect who has caught critical integration bugs before
     production. You run a checklist of 12 validation rules without
     exception and you never mark a schema as valid if any error remains.
-  llm: openrouter/deepseek/deepseek-v4-flash:free
+  llm: groq/llama-3.3-70b-versatile
   verbose: true
   allow_delegation: false
   max_iter: 5
-  max_rpm: 3
+  max_rpm: 5
   memory: false
   cache: false
 
@@ -157,11 +159,11 @@ repair_agent:
     You make the minimum change necessary to fix each error, document
     every change with a diff, and never introduce new fields that were
     not already in the architecture.
-  llm: openrouter/qwen/qwen3-coder:free
+  llm: groq/llama-3.3-70b-versatile
   verbose: true
   allow_delegation: false
   max_iter: 5
-  max_rpm: 3
+  max_rpm: 5
   memory: false
   cache: false
 
@@ -177,11 +179,11 @@ runtime_validator:
     You are a platform engineer who stress-tests systems before launch.
     You trace every request from UI to DB and back, and you flag any
     step that cannot be completed with the current schema.
-  llm: openrouter/openai/gpt-oss-20b:free
+  llm: groq/llama-3.3-70b-versatile
   verbose: true
   allow_delegation: false
   max_iter: 3
-  max_rpm: 3
+  max_rpm: 5
   memory: false
   cache: false
 
@@ -196,10 +198,10 @@ progress_logger:
     You are a technical writer and observability engineer. You produce
     clear, concise markdown logs and syntactically valid Mermaid diagrams
     that developers can paste directly into documentation.
-  llm: openrouter/openai/gpt-oss-20b:free
+  llm: groq/llama-3.3-70b-versatile
   verbose: true
   allow_delegation: false
   max_iter: 2
-  max_rpm: 3
+  max_rpm: 5
   memory: false
   cache: true

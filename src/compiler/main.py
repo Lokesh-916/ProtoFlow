@@ -71,29 +71,35 @@ logging.config.dictConfig({
 
 logger = logging.getLogger("protoflow.main")
 
-# ── Startup model-slug validation ─────────────────────────────────────────────
-# Log a warning if the OpenRouter key is missing so it's obvious immediately.
+# ── Startup key validation ────────────────────────────────────────────────────
 _OPENROUTER_KEY = os.getenv("OPENROUTER_API_KEY", "")
-if not _OPENROUTER_KEY or _OPENROUTER_KEY == "your_openrouter_api_key_here":
+_GROQ_KEY = os.getenv("GROQ_API_KEY", "")
+
+if not _GROQ_KEY:
     logger.warning(
-        "[startup] OPENROUTER_API_KEY is not set or is still the placeholder. "
-        "All LLM calls will fail. Set it in .env before running the pipeline."
+        "[startup] GROQ_API_KEY is not set. All LLM calls will fail. "
+        "Get a free key at https://console.groq.com and add it to .env"
     )
 else:
-    logger.info("[startup] OPENROUTER_API_KEY loaded (length=%d).", len(_OPENROUTER_KEY))
+    logger.info("[startup] GROQ_API_KEY loaded (length=%d).", len(_GROQ_KEY))
+
+if not _OPENROUTER_KEY or _OPENROUTER_KEY == "your_openrouter_api_key_here":
+    logger.info("[startup] OPENROUTER_API_KEY not set (not required — using Groq).")
+else:
+    logger.info("[startup] OPENROUTER_API_KEY loaded (length=%d) — kept as fallback.", len(_OPENROUTER_KEY))
 
 # Log the model slugs being used so mismatches are caught early
 _MODEL_MAP = {
-    "intent_extractor":  "openrouter/qwen/qwen3-coder:free",
-    "system_architect":  "openrouter/deepseek/deepseek-v4-flash:free",
-    "db_schema_agent":   "openrouter/deepseek/deepseek-v4-flash:free",
-    "api_schema_agent":  "openrouter/deepseek/deepseek-v4-flash:free",
-    "ui_schema_agent":   "openrouter/qwen/qwen3-coder:free",
-    "auth_agent":        "openrouter/openai/gpt-oss-20b:free",
-    "validator_agent":   "openrouter/deepseek/deepseek-v4-flash:free",
-    "repair_agent":      "openrouter/qwen/qwen3-coder:free",
-    "runtime_validator": "openrouter/openai/gpt-oss-20b:free",
-    "progress_logger":   "openrouter/openai/gpt-oss-20b:free",
+    "intent_extractor":  "groq/llama-3.3-70b-versatile",
+    "system_architect":  "groq/llama-3.3-70b-versatile",
+    "db_schema_agent":   "groq/llama-3.3-70b-versatile",
+    "api_schema_agent":  "groq/llama-3.3-70b-versatile",
+    "ui_schema_agent":   "groq/llama-3.3-70b-versatile",
+    "auth_agent":        "groq/llama-3.3-70b-versatile",
+    "validator_agent":   "groq/llama-3.3-70b-versatile",
+    "repair_agent":      "groq/llama-3.3-70b-versatile",
+    "runtime_validator": "groq/llama-3.3-70b-versatile",
+    "progress_logger":   "groq/llama-3.3-70b-versatile",
 }
 logger.info("[startup] Agent model map:")
 for agent_name, model in _MODEL_MAP.items():

@@ -254,6 +254,7 @@ class ProtoFlowCrew:
             tasks=self.tasks,
             process=Process.sequential,
             verbose=True,
+            memory=False,  # No OpenAI embedder available; context passed via task context[]
         )
 
 
@@ -528,6 +529,7 @@ async def run_pipeline(session: PipelineSession) -> None:
             agents=[agent] if agent else [],
             tasks=[task_obj],
             verbose=True,
+            memory=False,  # No OpenAI embedder; avoids ChromaDB CHROMA_OPENAI_API_KEY error
         )
 
         # Run in a thread pool to avoid blocking the event loop
