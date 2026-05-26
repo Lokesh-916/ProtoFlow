@@ -904,6 +904,7 @@ async def run_pipeline(session: PipelineSession) -> None:
                 "repair_count": session.repair_count,
                 "hitl_count": session.hitl_count,
                 "user_prompt": session.prompt,
+                "session_id": session.session_id,
             },
         )
         session.log_output = result
