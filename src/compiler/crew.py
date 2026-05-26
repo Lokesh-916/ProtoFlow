@@ -384,6 +384,13 @@ async def _run_stage(
       - LLM cache stats logging
     """
     logger.info("[session:%s] Stage START: %s", session.session_id, stage_name)
+    if getattr(session, 'tpm_limit_hit', False):
+        logger.warning("[session:%s] Skipping stage %s due to prior TPM limit hit.", session.session_id, stage_name)
+        await _emit(session, "stage_update", {
+            "stage": stage_name, "status": "failed", "model": model, "latency_ms": 0,
+            "output_summary": "Bypassed due to Groq TPM limits."
+        })
+        return {}
     t0 = time.monotonic()
 
     await _emit(session, "stage_update", {
@@ -424,6 +431,14 @@ async def _run_stage(
     except Exception as exc:
         latency_ms = int((time.monotonic() - t0) * 1000)
         session.stage_latencies[stage_name] = latency_ms
+        if "Request size exceeds TPM limit" in str(exc) or "TPM" in str(exc):
+            logger.error("[session:%s] TPM limit hit in stage %s. Bypassing.", session.session_id, stage_name)
+            setattr(session, 'tpm_limit_hit', True)
+            await _emit(session, "stage_update", {
+                "stage": stage_name, "status": "failed", "model": model, "latency_ms": latency_ms,
+                "output_summary": f"Bypassed: {exc}"
+            })
+            return {}
         logger.error(
             "[session:%s] Stage FAILED: %s error=%s latency=%dms",
             session.session_id, stage_name, exc, latency_ms, exc_info=True,
@@ -537,8 +552,9 @@ async def run_pipeline(session: PipelineSession) -> None:
                 break  # Success
             except Exception as e:
                 err_str = str(e)
-                # Check for rate limit indicators from Groq/litellm
                 if "RateLimitError" in type(e).__name__ or "rate_limit" in err_str.lower() or "rate limit reached" in err_str.lower():
+                    if "Request too large" in err_str or ("Limit" in err_str and "Requested" in err_str):
+                        raise ValueError(f"Request size exceeds TPM limit: {err_str}")
                     if attempt < max_retries - 1:
                         # Parse "Please try again in 21.665s." or fallback to 30s
                         wait_time = 30.0
@@ -851,6 +867,8 @@ async def run_pipeline(session: PipelineSession) -> None:
             session, "repair",
             "groq/llama-3.3-70b-versatile", _stage_repair()
         )
+        if getattr(session, 'tpm_limit_hit', False):
+            break
 
         # Rebuild for next validation pass
         all_schemas_json = json.dumps({
