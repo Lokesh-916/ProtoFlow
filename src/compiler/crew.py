@@ -534,10 +534,35 @@ async def run_pipeline(session: PipelineSession) -> None:
 
         # Run in a thread pool to avoid blocking the event loop
         loop = asyncio.get_running_loop()
-        result = await loop.run_in_executor(
-            None,
-            lambda: temp_crew.kickoff(inputs=inputs),
-        )
+        
+        import re
+        max_retries = 5
+        result = None
+        for attempt in range(max_retries):
+            try:
+                result = await loop.run_in_executor(
+                    None,
+                    lambda: temp_crew.kickoff(inputs=inputs),
+                )
+                break  # Success
+            except Exception as e:
+                err_str = str(e)
+                # Check for rate limit indicators from Groq/litellm
+                if "RateLimitError" in type(e).__name__ or "rate_limit" in err_str.lower() or "rate limit reached" in err_str.lower():
+                    if attempt < max_retries - 1:
+                        # Parse "Please try again in 21.665s." or fallback to 30s
+                        wait_time = 30.0
+                        match = re.search(r'try again in ([\d\.]+)s', err_str)
+                        if match:
+                            wait_time = float(match.group(1)) + 2.0  # 2s buffer
+                        logger.warning(
+                            "[session:%s] Rate limit hit for %s. Sleeping %.1fs before attempt %d. Error: %s",
+                            session.session_id, task_name, wait_time, attempt + 2, err_str.split('"message":')[1].split(',"type"')[0] if '"message":' in err_str else err_str[:100]
+                        )
+                        await asyncio.sleep(wait_time)
+                        continue
+                # If it's not a rate limit error, or we're out of retries, raise it
+                raise e
         
         # Token extraction
         if hasattr(result, 'token_usage'):
@@ -687,42 +712,29 @@ async def run_pipeline(session: PipelineSession) -> None:
         )
         return result
 
-    # Emit running events for all four parallel stages
-    for stage_name, model in [
-        ("db_schema", "groq/llama-3.3-70b-versatile"),
-        ("api_schema", "groq/llama-3.3-70b-versatile"),
-        ("ui_schema", "groq/llama-3.3-70b-versatile"),
-        ("auth_schema", "groq/llama-3.3-70b-versatile"),
-    ]:
+    # ─────────────────────────────────────────────────────────────────────────
+    # STAGES 3-6 — Sequential Execution (formerly parallel fan-out)
+    # We run these sequentially to avoid hitting Groq's 12,000 TPM rate limit
+    # ─────────────────────────────────────────────────────────────────────────
+    async def _run_schema_stage(stage_name: str, task_coro, model: str) -> dict:
         await _emit(session, "stage_update", {
             "stage": stage_name, "status": "running",
             "model": model, "latency_ms": 0, "output_summary": "",
         })
-
-    t_parallel_start = time.monotonic()
-    db_result, api_result, ui_result, auth_result = await asyncio.gather(
-        _stage_db(),
-        _stage_api(),
-        _stage_ui(),
-        _stage_auth(),
-        return_exceptions=False,
-    )
-    parallel_ms = int((time.monotonic() - t_parallel_start) * 1000)
-    logger.info(
-        "[session:%s] Parallel fan-out complete in %dms.", session.session_id, parallel_ms
-    )
-
-    for stage_name, result, model in [
-        ("db_schema", db_result, "groq/llama-3.3-70b-versatile"),
-        ("api_schema", api_result, "groq/llama-3.3-70b-versatile"),
-        ("ui_schema", ui_result, "groq/llama-3.3-70b-versatile"),
-        ("auth_schema", auth_result, "groq/llama-3.3-70b-versatile"),
-    ]:
+        t_start = time.monotonic()
+        result = await task_coro()
+        latency_ms = int((time.monotonic() - t_start) * 1000)
         await _emit(session, "stage_update", {
             "stage": stage_name, "status": "complete",
-            "model": model, "latency_ms": parallel_ms,
+            "model": model, "latency_ms": latency_ms,
             "output_summary": json.dumps(result)[:120],
         })
+        return result
+
+    db_result = await _run_schema_stage("db_schema", _stage_db, "groq/llama-3.3-70b-versatile")
+    api_result = await _run_schema_stage("api_schema", _stage_api, "groq/llama-3.3-70b-versatile")
+    ui_result = await _run_schema_stage("ui_schema", _stage_ui, "groq/llama-3.3-70b-versatile")
+    auth_result = await _run_schema_stage("auth_schema", _stage_auth, "groq/llama-3.3-70b-versatile")
 
     # ─────────────────────────────────────────────────────────────────────────
     # STAGE 4 + 5 — Validation + Repair loop
