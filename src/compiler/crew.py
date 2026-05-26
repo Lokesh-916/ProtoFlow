@@ -468,36 +468,66 @@ async def run_pipeline(session: PipelineSession) -> None:
 
     crew_instance = ProtoFlowCrew()
 
+    # ── Read raw YAML once so we can look up agent names by task name ─────────
+    import yaml as _yaml
+    _yaml_path = os.path.join(os.path.dirname(__file__), "config", "tasks.yaml")
+    with open(_yaml_path, "r", encoding="utf-8") as _f:
+        _raw_tasks_yaml: dict = _yaml.safe_load(_f)
+    logger.debug("[crew] Loaded raw tasks YAML. keys=%s", list(_raw_tasks_yaml.keys()))
+
     # ── Helper: kick off a single CrewAI task and parse JSON output ───────────
     async def _kickoff_task(task_name: str, inputs: dict) -> dict:
         """
         Run a single task by creating a temporary single-task Crew.
-        This avoids executing all tasks in the sequential crew and prevents
-        concurrency issues during parallel stage execution.
+        Reads agent name from raw YAML (not from instantiated Task objects)
+        to avoid the 'attribute name must be string, not Agent' error.
         """
         logger.debug(
             "[session:%s] _kickoff_task: %s inputs_keys=%s",
             session.session_id, task_name, list(inputs.keys()),
         )
-        
-        task_config = crew_instance.tasks_config[task_name]
-        agent_name = task_config.get("agent")
-        
+
+        # Get agent name string from raw YAML dict
+        raw_task_def = _raw_tasks_yaml.get(task_name, {})
+        agent_name: str = raw_task_def.get("agent", "")
+        logger.debug(
+            "[session:%s] _kickoff_task: task=%s agent_name=%r",
+            session.session_id, task_name, agent_name,
+        )
+
+        # Instantiate agent via the @agent method on the crew class
         agent = None
-        if agent_name:
+        if agent_name and isinstance(agent_name, str):
             agent_creator = getattr(crew_instance, agent_name, None)
-            if agent_creator:
+            if callable(agent_creator):
                 agent = agent_creator()
-                
-        task_creator = getattr(crew_instance, task_name)
-        task = task_creator()
+                logger.debug("[session:%s] Agent instantiated: %s", session.session_id, agent_name)
+            else:
+                logger.warning(
+                    "[session:%s] No @agent method found for name=%r on ProtoFlowCrew",
+                    session.session_id, agent_name,
+                )
+        else:
+            logger.warning(
+                "[session:%s] agent_name is not a string: %r (type=%s). "
+                "Check tasks.yaml for task '%s'.",
+                session.session_id, agent_name, type(agent_name).__name__, task_name,
+            )
+
+        # Instantiate task via the @task method
+        task_creator = getattr(crew_instance, task_name, None)
+        if not callable(task_creator):
+            raise ValueError(f"No @task method found for '{task_name}' on ProtoFlowCrew")
+        task_obj = task_creator()
+
+        # Assign agent to task (overrides YAML assignment for single-task crew)
         if agent:
-            task.agent = agent
-            
+            task_obj.agent = agent
+
         temp_crew = Crew(
             agents=[agent] if agent else [],
-            tasks=[task],
-            verbose=True
+            tasks=[task_obj],
+            verbose=True,
         )
 
         # Run in a thread pool to avoid blocking the event loop
