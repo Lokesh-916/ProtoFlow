@@ -553,7 +553,7 @@ async def run_pipeline(session: PipelineSession) -> None:
             except Exception as e:
                 err_str = str(e)
                 if "RateLimitError" in type(e).__name__ or "rate_limit" in err_str.lower() or "rate limit reached" in err_str.lower():
-                    if "Request too large" in err_str or ("Limit" in err_str and "Requested" in err_str):
+                    if "Request too large" in err_str:
                         raise ValueError(f"Request size exceeds TPM limit: {err_str}")
                     if attempt < max_retries - 1:
                         # Parse "Please try again in 21.665s." or fallback to 30s
