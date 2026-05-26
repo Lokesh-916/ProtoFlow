@@ -570,7 +570,14 @@ async def run_pipeline(session: PipelineSession) -> None:
             "[session:%s] _kickoff_task raw output length: %d chars",
             session.session_id, len(raw),
         )
-        return extract_json(raw)
+        parsed = extract_json(raw)
+        if not isinstance(parsed, dict):
+            logger.error(
+                "[session:%s] LLM output parsed as %s instead of dict. Coercing to empty dict.",
+                session.session_id, type(parsed).__name__
+            )
+            return {}
+        return parsed
 
     # ─────────────────────────────────────────────────────────────────────────
     # STAGE 1 — Intent Extraction (always HITL)
