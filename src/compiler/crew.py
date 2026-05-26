@@ -615,7 +615,7 @@ async def run_pipeline(session: PipelineSession) -> None:
 
     session.intent = await _run_stage(
         session, "intent_extraction",
-        "groq/openai/gpt-oss-20b", _stage_intent()
+        "groq/openai/gpt-oss-120b", _stage_intent()
     )
 
     # ─────────────────────────────────────────────────────────────────────────
@@ -640,7 +640,7 @@ async def run_pipeline(session: PipelineSession) -> None:
 
     session.architecture = await _run_stage(
         session, "architecture_design",
-        "groq/openai/gpt-oss-20b", _stage_architecture()
+        "groq/openai/gpt-oss-120b", _stage_architecture()
     )
 
     # ─────────────────────────────────────────────────────────────────────────
@@ -729,10 +729,10 @@ async def run_pipeline(session: PipelineSession) -> None:
         })
         return result
 
-    db_result = await _run_schema_stage("db_schema", _stage_db, "groq/openai/gpt-oss-20b")
-    api_result = await _run_schema_stage("api_schema", _stage_api, "groq/openai/gpt-oss-20b")
-    ui_result = await _run_schema_stage("ui_schema", _stage_ui, "groq/openai/gpt-oss-20b")
-    auth_result = await _run_schema_stage("auth_schema", _stage_auth, "groq/openai/gpt-oss-20b")
+    db_result = await _run_schema_stage("db_schema", _stage_db, "groq/openai/gpt-oss-120b")
+    api_result = await _run_schema_stage("api_schema", _stage_api, "groq/openai/gpt-oss-120b")
+    ui_result = await _run_schema_stage("ui_schema", _stage_ui, "groq/openai/gpt-oss-120b")
+    auth_result = await _run_schema_stage("auth_schema", _stage_auth, "groq/openai/gpt-oss-120b")
 
     # ─────────────────────────────────────────────────────────────────────────
     # STAGE 4 + 5 — Validation + Repair loop
@@ -771,7 +771,7 @@ async def run_pipeline(session: PipelineSession) -> None:
 
         validation = await _run_stage(
             session, "validation",
-            "groq/openai/gpt-oss-20b", _stage_validate()
+            "groq/openai/gpt-oss-120b", _stage_validate()
         )
 
         if validation.get("is_valid", False):
@@ -789,7 +789,7 @@ async def run_pipeline(session: PipelineSession) -> None:
         await _emit(session, "stage_update", {
             "stage": "validation",
             "status": "repair_triggered",
-            "model": "groq/openai/gpt-oss-20b",
+            "model": "groq/openai/gpt-oss-120b",
             "latency_ms": session.stage_latencies.get("validation", 0),
             "output_summary": f"{len(errors)} errors found",
             "conflicts": [e.get("description", "") for e in validation.get("conflicts", [])],
@@ -851,7 +851,7 @@ async def run_pipeline(session: PipelineSession) -> None:
 
         await _run_stage(
             session, "repair",
-            "groq/openai/gpt-oss-20b", _stage_repair()
+            "groq/openai/gpt-oss-120b", _stage_repair()
         )
 
         # Rebuild for next validation pass
@@ -887,7 +887,7 @@ async def run_pipeline(session: PipelineSession) -> None:
 
     await _run_stage(
         session, "runtime_validation",
-        "groq/openai/gpt-oss-20b", _stage_runtime()
+        "groq/openai/gpt-oss-120b", _stage_runtime()
     )
 
     # ─────────────────────────────────────────────────────────────────────────
@@ -921,7 +921,7 @@ async def run_pipeline(session: PipelineSession) -> None:
 
     await _run_stage(
         session, "logging",
-        "groq/openai/gpt-oss-20b", _stage_logging()
+        "groq/openai/gpt-oss-120b", _stage_logging()
     )
 
     # ─────────────────────────────────────────────────────────────────────────

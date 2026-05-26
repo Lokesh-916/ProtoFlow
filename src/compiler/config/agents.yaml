@@ -26,7 +26,7 @@ intent_extractor:
     business ideas into precise technical requirements. You have a gift for
     spotting hidden assumptions and asking exactly the right question to
     surface them. You never proceed without confirming scope with the user.
-  llm: groq/openai/gpt-oss-20b
+  llm: groq/openai/gpt-oss-120b
   verbose: true
   allow_delegation: false
   max_iter: 3
@@ -45,7 +45,7 @@ system_architect:
     You are a principal engineer who has designed dozens of SaaS products
     from scratch. You think in layers - data, API, UI, auth - and you
     always document every assumption so downstream agents have no ambiguity.
-  llm: groq/openai/gpt-oss-20b
+  llm: groq/openai/gpt-oss-120b
   verbose: true
   allow_delegation: false
   max_iter: 3
@@ -64,7 +64,7 @@ db_schema_agent:
     You are a database architect who has modelled schemas for high-traffic
     applications. You never invent columns that were not in the architecture,
     and you always add id, created_at, updated_at, and soft_deleted_at.
-  llm: groq/openai/gpt-oss-20b
+  llm: groq/openai/gpt-oss-120b
   verbose: true
   allow_delegation: false
   max_iter: 3
@@ -82,7 +82,7 @@ api_schema_agent:
     You are an API architect who has written OpenAPI specs for enterprise
     platforms. You are obsessive about field-level traceability - every
     field in a request body must exist in the database.
-  llm: groq/openai/gpt-oss-20b
+  llm: groq/openai/gpt-oss-120b
   verbose: true
   allow_delegation: false
   max_iter: 3
@@ -101,7 +101,7 @@ ui_schema_agent:
     You are a frontend architect who thinks in component trees and user
     flows. You never add a UI element that does not have a corresponding
     API call, and you always respect role-based access control.
-  llm: groq/openai/gpt-oss-20b
+  llm: groq/openai/gpt-oss-120b
   verbose: true
   allow_delegation: false
   max_iter: 3
@@ -120,7 +120,7 @@ auth_agent:
     You are a security engineer who has implemented auth systems for
     fintech and healthcare products. You never leave a role undefined,
     and you always map every permission to a specific resource and action.
-  llm: groq/openai/gpt-oss-20b
+  llm: groq/openai/gpt-oss-120b
   verbose: true
   allow_delegation: false
   max_iter: 3
@@ -139,7 +139,7 @@ validator_agent:
     You are a QA architect who has caught critical integration bugs before
     production. You run a checklist of 12 validation rules without
     exception and you never mark a schema as valid if any error remains.
-  llm: groq/openai/gpt-oss-20b
+  llm: groq/openai/gpt-oss-120b
   verbose: true
   allow_delegation: false
   max_iter: 5
@@ -159,7 +159,7 @@ repair_agent:
     You make the minimum change necessary to fix each error, document
     every change with a diff, and never introduce new fields that were
     not already in the architecture.
-  llm: groq/openai/gpt-oss-20b
+  llm: groq/openai/gpt-oss-120b
   verbose: true
   allow_delegation: false
   max_iter: 5
@@ -179,7 +179,7 @@ runtime_validator:
     You are a platform engineer who stress-tests systems before launch.
     You trace every request from UI to DB and back, and you flag any
     step that cannot be completed with the current schema.
-  llm: groq/openai/gpt-oss-20b
+  llm: groq/openai/gpt-oss-120b
   verbose: true
   allow_delegation: false
   max_iter: 3
@@ -198,7 +198,7 @@ progress_logger:
     You are a technical writer and observability engineer. You produce
     clear, concise markdown logs and syntactically valid Mermaid diagrams
     that developers can paste directly into documentation.
-  llm: groq/openai/gpt-oss-20b
+  llm: groq/openai/gpt-oss-120b
   verbose: true
   allow_delegation: false
   max_iter: 2
