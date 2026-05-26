@@ -129,7 +129,6 @@ class ProtoFlowCrew:
         logger.debug("[crew] Building validator_agent agent.")
         return Agent(
             config=self.agents_config["validator_agent"],  # type: ignore[index]
-            tools=[self._schema_diff_tool],
             verbose=True,
         )
 
@@ -138,7 +137,6 @@ class ProtoFlowCrew:
         logger.debug("[crew] Building repair_agent agent.")
         return Agent(
             config=self.agents_config["repair_agent"],  # type: ignore[index]
-            tools=[self._schema_diff_tool],
             verbose=True,
         )
 
