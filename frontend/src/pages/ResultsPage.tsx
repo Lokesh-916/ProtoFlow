@@ -38,7 +38,14 @@ export default function ResultsPage() {
     if (!sessionId) { navigate("/"); return; }
     getResult(sessionId)
       .then(data => { setResult(data); setLoading(false); })
-      .catch(err => { setError(err.message ?? String(err)); setLoading(false); });
+      .catch(err => {
+        if (err.message.includes("202")) {
+          navigate(`/generate?session=${sessionId}`);
+        } else {
+          setError(err.message ?? String(err));
+          setLoading(false);
+        }
+      });
   }, [sessionId, navigate]);
 
   const handleDownload = () => {

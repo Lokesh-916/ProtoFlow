@@ -942,9 +942,10 @@ async def run_pipeline(session: PipelineSession) -> None:
 
     from compiler.schemas.contracts import FinalOutput
     try:
-        FinalOutput(**final_schema)
+        FinalOutput.model_validate(final_schema)
+        logger.info("[session:%s] FinalOutput Pydantic validation passed.", session.session_id)
     except Exception as e:
-        logger.warning("[session:%s] FinalOutput Pydantic validation failed: %s", session.session_id, e)
+        logger.warning("[session:%s] FinalOutput Pydantic validation failed (non-blocking): %s", session.session_id, e)
 
     await _emit(session, "pipeline_complete", {
         "total_latency_ms": total_ms,
