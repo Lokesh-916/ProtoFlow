@@ -10,7 +10,6 @@ dist/
 build/
 *.egg-info/
 .uv/
-uv.lock
 report.md
 
 # Kiro / AI assistant files — do not commit
