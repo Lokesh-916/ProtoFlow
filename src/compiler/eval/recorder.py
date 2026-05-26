@@ -69,11 +69,21 @@ def record_auto_metrics(
     # Populate stages completed and failed
     stages_completed = []
     stages_failed = []
-    for stage_name, latency in session.stage_latencies.items():
-        if latency > 0:
-            stages_completed.append(stage_name)
-        else:
-            stages_failed.append(stage_name)
+    
+    # Analyze the event buffer to determine which stages completed and failed
+    stage_statuses = {}
+    for event in session.event_buffer:
+        if event.get("event") == "stage_update":
+            stage = event.get("stage")
+            status = event.get("status")
+            if stage and status:
+                stage_statuses[stage] = status
+
+    for stage, status in stage_statuses.items():
+        if status in ["complete", "repair_triggered", "hitl_required"]:
+            stages_completed.append(stage)
+        elif status == "failed":
+            stages_failed.append(stage)
 
     assumptions_count = len(intent.get("assumptions", []))
     conflicts_count = len(validation.get("conflicts", []))

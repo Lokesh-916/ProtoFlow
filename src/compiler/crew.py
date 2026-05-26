@@ -47,7 +47,9 @@ logger = logging.getLogger("protoflow.crew")
 # Signature: async (session_id: str, event_type: str, payload: dict) -> None
 SSEEmitter = Callable[[str, str, dict], Coroutine[Any, Any, None]]
 
-MAX_REPAIR_LOOPS = 3
+import os
+MAX_REPAIR_LOOPS = int(os.getenv("MAX_REPAIR_LOOPS", "3"))
+HITL_TIMEOUT_SECONDS = int(os.getenv("HITL_TIMEOUT_SECONDS", "300"))
 
 
 # ── CrewBase class ────────────────────────────────────────────────────────────
@@ -263,9 +265,10 @@ class PipelineSession:
     One instance per session_id, stored in the session store in main.py.
     """
 
-    def __init__(self, session_id: str, prompt: str) -> None:
+    def __init__(self, session_id: str, prompt: str, skip_hitl: bool = False) -> None:
         self.session_id = session_id
         self.prompt = prompt
+        self.skip_hitl = skip_hitl
         self.started_at = time.monotonic()
 
         # HITL synchronisation
@@ -336,12 +339,16 @@ async def _wait_for_hitl(
     trigger_reason: str,
     questions: list[str],
     options: Optional[list[str]] = None,
-    timeout_seconds: int = 300,
+    timeout_seconds: int = HITL_TIMEOUT_SECONDS,
 ) -> list[str]:
     """
     Emit a hitl_required event, then block until POST /clarify sets the event.
     Returns the answers list.
     """
+    if getattr(session, 'skip_hitl', False):
+        logger.info("[session:%s] HITL skipped (eval mode).", session.session_id)
+        return []
+
     logger.info(
         "[session:%s] HITL required. stage=%s reason=%s questions=%s",
         session.session_id, stage, trigger_reason, questions,
@@ -494,11 +501,20 @@ async def run_pipeline(session: PipelineSession) -> None:
         )
 
         # Run in a thread pool to avoid blocking the event loop
-        loop = asyncio.get_event_loop()
+        loop = asyncio.get_running_loop()
         result = await loop.run_in_executor(
             None,
             lambda: temp_crew.kickoff(inputs=inputs),
         )
+        
+        # Token extraction
+        if hasattr(result, 'token_usage'):
+            usage = result.token_usage
+            if hasattr(usage, 'total_tokens'):
+                session.total_tokens += usage.total_tokens
+            elif isinstance(usage, dict):
+                session.total_tokens += usage.get('total_tokens', 0)
+
         raw = result.raw if hasattr(result, "raw") else str(result)
         logger.debug(
             "[session:%s] _kickoff_task raw output length: %d chars",
@@ -753,7 +769,7 @@ async def run_pipeline(session: PipelineSession) -> None:
                     f"How should this be resolved?"
                     for err in unresolved
                 ],
-                timeout_seconds=300,
+                timeout_seconds=HITL_TIMEOUT_SECONDS,
             )
 
         async def _stage_repair() -> dict:
@@ -891,6 +907,12 @@ async def run_pipeline(session: PipelineSession) -> None:
         "repair_report": session.repair_report,
         "runtime_report": session.runtime_report,
     }
+
+    from compiler.schemas.contracts import FinalOutput
+    try:
+        FinalOutput(**final_schema)
+    except Exception as e:
+        logger.warning("[session:%s] FinalOutput Pydantic validation failed: %s", session.session_id, e)
 
     await _emit(session, "pipeline_complete", {
         "total_latency_ms": total_ms,

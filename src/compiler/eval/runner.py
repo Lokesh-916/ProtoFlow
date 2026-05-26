@@ -137,7 +137,7 @@ async def run_prompt(prompt_id: int):
         raise HTTPException(status_code=404, detail=f"Prompt ID {prompt_id} not found.")
 
     session_id = str(uuid.uuid4())
-    session = PipelineSession(session_id=session_id, prompt=prompt_data["prompt"].strip())
+    session = PipelineSession(session_id=session_id, prompt=prompt_data["prompt"].strip(), skip_hitl=True)
 
     # Import the main session store locally to avoid circular dependency
     from compiler.main import _session_store, _session_lock
