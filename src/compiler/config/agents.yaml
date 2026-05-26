@@ -1,26 +1,17 @@
-# ProtoFlow Agent Definitions
-# ─────────────────────────────────────────────────────────────────────────────
+﻿# ProtoFlow Agent Definitions
 # All agents use OpenRouter via crewai LiteLLM routing.
-# Model strings are passed VERBATIM — do NOT change them.
-# If a model slug fails to resolve at runtime, a console warning is printed
-# by the startup logger in main.py so you can diagnose it quickly.
+# Model strings are passed VERBATIM - do NOT change them.
 #
-# MEMORY STRATEGY (why each agent has the memory setting it does):
-#   intent_extractor  → short-term ON: must remember HITL answers within session
-#   system_architect  → short-term ON: holds full IntentSchema while designing
-#   db/api/ui/auth    → short-term ON: parallel swarm agents need architecture context
-#   validator_agent   → short-term ON: must hold all 4 schemas simultaneously
-#   repair_agent      → short-term ON: must remember prior repair attempts to avoid loops
-#   runtime_validator → short-term ON: traces multi-step flows across schemas
-#   progress_logger   → short-term OFF: stateless summariser, no cross-turn memory needed
+# MEMORY: All agents use memory: false
+#   Reason: CrewAI memory requires OpenAI embeddings (ChromaDB).
+#   We only have an OpenRouter key, not a direct OpenAI key.
+#   Context is passed between stages via task context[] in tasks.yaml instead.
+#   This is more reliable for a deterministic pipeline anyway.
 #
-# Long-term memory is OFF for all agents — schema patterns from past runs would
-# bleed into new prompts and produce hallucinated field names.
+# CACHING: cache: true on schema-generating agents to avoid redundant tool calls.
 #
-# CACHING:
-#   cache: true on all schema-generating agents so identical tool calls
-#   (e.g. repeated JSON extraction on the same text) are not re-executed.
-# ─────────────────────────────────────────────────────────────────────────────
+# RATE LIMITING: max_rpm set per agent to stay within OpenRouter free tier limits.
+#   Free tier: ~3-5 RPM per model. Sequential pipeline means one call at a time.
 
 intent_extractor:
   role: >
@@ -37,7 +28,8 @@ intent_extractor:
   verbose: true
   allow_delegation: false
   max_iter: 3
-  memory: true
+  max_rpm: 3
+  memory: false
   cache: true
 
 system_architect:
@@ -49,13 +41,14 @@ system_architect:
     hierarchy, and business rules.
   backstory: >
     You are a principal engineer who has designed dozens of SaaS products
-    from scratch. You think in layers — data, API, UI, auth — and you
+    from scratch. You think in layers - data, API, UI, auth - and you
     always document every assumption so downstream agents have no ambiguity.
   llm: openrouter/deepseek/deepseek-v4-flash:free
   verbose: true
   allow_delegation: false
   max_iter: 3
-  memory: true
+  max_rpm: 3
+  memory: false
   cache: true
 
 db_schema_agent:
@@ -73,7 +66,8 @@ db_schema_agent:
   verbose: true
   allow_delegation: false
   max_iter: 3
-  memory: true
+  max_rpm: 3
+  memory: false
   cache: true
 
 api_schema_agent:
@@ -84,13 +78,14 @@ api_schema_agent:
     maps exactly to an existing DB column. No invented fields allowed.
   backstory: >
     You are an API architect who has written OpenAPI specs for enterprise
-    platforms. You are obsessive about field-level traceability — every
+    platforms. You are obsessive about field-level traceability - every
     field in a request body must exist in the database.
   llm: openrouter/deepseek/deepseek-v4-flash:free
   verbose: true
   allow_delegation: false
   max_iter: 3
-  memory: true
+  max_rpm: 3
+  memory: false
   cache: true
 
 ui_schema_agent:
@@ -108,7 +103,8 @@ ui_schema_agent:
   verbose: true
   allow_delegation: false
   max_iter: 3
-  memory: true
+  max_rpm: 3
+  memory: false
   cache: true
 
 auth_agent:
@@ -126,7 +122,8 @@ auth_agent:
   verbose: true
   allow_delegation: false
   max_iter: 3
-  memory: true
+  max_rpm: 3
+  memory: false
   cache: true
 
 validator_agent:
@@ -144,7 +141,8 @@ validator_agent:
   verbose: true
   allow_delegation: false
   max_iter: 5
-  memory: true
+  max_rpm: 3
+  memory: false
   cache: false
 
 repair_agent:
@@ -163,7 +161,8 @@ repair_agent:
   verbose: true
   allow_delegation: false
   max_iter: 5
-  memory: true
+  max_rpm: 3
+  memory: false
   cache: false
 
 runtime_validator:
@@ -182,7 +181,8 @@ runtime_validator:
   verbose: true
   allow_delegation: false
   max_iter: 3
-  memory: true
+  max_rpm: 3
+  memory: false
   cache: false
 
 progress_logger:
@@ -200,5 +200,6 @@ progress_logger:
   verbose: true
   allow_delegation: false
   max_iter: 2
+  max_rpm: 3
   memory: false
   cache: true
