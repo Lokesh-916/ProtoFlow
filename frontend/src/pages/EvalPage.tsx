@@ -379,7 +379,7 @@ export default function EvalPage() {
       </nav>
 
       {/* Main Container */}
-      <div className="flex-1 p-6 space-y-6 max-w-7xl mx-auto w-full">
+      <div className="flex-1 p-6 space-y-6 w-full">
         
         {/* ── Summary Stats Bar ── */}
         <div className="grid grid-cols-2 md:grid-cols-5 gap-4">
@@ -676,7 +676,7 @@ export default function EvalPage() {
                         }
 
                         return (
-                          <optgroup key={p.id} label={p.label} className="contents">
+                          <React.Fragment key={p.id}>
                             {/* Primary Row */}
                             <tr
                               className={`border-b border-canvas-900/60 hover:bg-canvas-900/20 transition-colors cursor-pointer ${
@@ -818,7 +818,7 @@ export default function EvalPage() {
                                 </td>
                               </tr>
                             )}
-                          </optgroup>
+                          </React.Fragment>
                         );
                       })
                     )}
