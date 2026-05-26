@@ -741,8 +741,7 @@ async def run_pipeline(session: PipelineSession) -> None:
         "api_schema": session.api_schema,
         "ui_schema": session.ui_schema,
         "auth_schema": session.auth_schema,
-        "architecture": session.architecture,
-    })
+    }, separators=(',', ':'))
 
     for attempt in range(1, MAX_REPAIR_LOOPS + 1):
         logger.info(
@@ -859,8 +858,7 @@ async def run_pipeline(session: PipelineSession) -> None:
             "api_schema": session.api_schema,
             "ui_schema": session.ui_schema,
             "auth_schema": session.auth_schema,
-            "architecture": session.architecture,
-        })
+        }, separators=(',', ':'))
 
     # ─────────────────────────────────────────────────────────────────────────
     # STAGE 6 — Runtime Validation
