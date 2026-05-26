@@ -114,7 +114,7 @@ _MODEL_MAP = {
 }
 logger.info("[startup] Agent model map:")
 for agent_name, model in _MODEL_MAP.items():
-    logger.info("  %-22s → %s", agent_name, model)
+    logger.info("  %-22s -> %s", agent_name, model)
 
 # ── Session store ─────────────────────────────────────────────────────────────
 from compiler.crew import PipelineSession, run_pipeline
