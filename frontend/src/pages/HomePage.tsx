@@ -41,9 +41,7 @@ export default function HomePage() {
       {/* ── Nav ── */}
       <nav className="flex items-center justify-between px-8 py-5 max-w-7xl mx-auto w-full">
         <div className="flex items-center gap-3">
-          <div className="w-8 h-8 rounded-xl bg-terra-500 flex items-center justify-center shadow-lg shadow-terra-500/30">
-            <Cpu className="w-4 h-4 text-white" />
-          </div>
+          <img src="/favicon.png" className="w-8 h-8 object-contain" alt="ProtoFlow logo" />
           <span className="font-display text-xl text-canvas-100 tracking-wide">ProtoFlow</span>
         </div>
         <span className="text-xs text-canvas-700 font-mono">v1.0 · beta</span>

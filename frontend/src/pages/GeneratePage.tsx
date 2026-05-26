@@ -78,9 +78,7 @@ export default function GeneratePage() {
       {/* Nav */}
       <nav className="flex items-center justify-between px-6 py-4 border-b border-canvas-900 flex-shrink-0">
         <div className="flex items-center gap-3">
-          <div className="w-7 h-7 rounded-xl bg-terra-500 flex items-center justify-center shadow-md shadow-terra-500/30">
-            <Cpu className="w-3.5 h-3.5 text-white" />
-          </div>
+          <img src="/favicon.png" className="w-6 h-6 object-contain" alt="ProtoFlow logo" />
           <span className="font-display text-lg text-canvas-100">ProtoFlow</span>
           <span className="text-canvas-700 mx-1 text-sm">/</span>
           <span className="text-xs text-canvas-500">Pipeline</span>

@@ -349,9 +349,7 @@ export default function EvalPage() {
       {/* Navbar */}
       <nav className="flex items-center justify-between px-6 py-4 border-b border-canvas-900 bg-canvas-950/80 backdrop-blur flex-shrink-0 sticky top-0 z-40">
         <div className="flex items-center gap-3">
-          <div className="w-8 h-8 rounded-xl bg-terra-500 flex items-center justify-center shadow-lg shadow-terra-500/30">
-            <Cpu className="w-4 h-4 text-white" />
-          </div>
+          <img src="/favicon.png" className="w-8 h-8 object-contain" alt="ProtoFlow logo" />
           <span className="font-display text-xl text-canvas-100 tracking-wide">ProtoFlow</span>
           <span className="text-canvas-700 mx-1 text-sm">/</span>
           <span className="text-xs text-canvas-400 font-mono tracking-widest uppercase">Evaluation Dashboard</span>

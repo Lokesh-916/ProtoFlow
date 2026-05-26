@@ -5,6 +5,10 @@
   <img src="https://img.shields.io/badge/Build-FastAPI%20%7C%20React-blue?style=for-the-badge" alt="Tech Stack">
 </p>
 
+<p align="center">
+  <img src="frontend/public/favicon.png" width="80" height="80" alt="ProtoFlow Logo">
+</p>
+
 <h1 align="center">ProtoFlow</h1>
 <p align="center"><b>Natural language descriptions to cross-validated, simulated, and production-ready application schemas.</b></p>
 
@@ -29,6 +33,22 @@ ProtoFlow compiles and delivers a unified, production-ready schema including:
 
 ### How it works
 ProtoFlow compiles application schemas through a 10-stage execution pipeline running under an asynchronous supervisor. While the schema design tasks (Database, API, UI, and Auth) are conceptually fanned out in parallel, they are executed in a sequential queue with rate-limit dampening to handle the constraints of free-tier LLM endpoints.
+
+---
+
+## 🎯 Demo Task Requirements Mapping
+
+This project was built to satisfy the **AI Engineer Demo Task** criteria.
+
+| Demo Task Requirement | How ProtoFlow Solves It |
+| :--- | :--- |
+| **1. Multi-Stage Pipeline** | 10 distinct CrewAI stages (Intent → Architecture → DB/API/UI/Auth → Validation → Repair → Simulation). |
+| **2. Strict Schema Enforcement** | `schemas/contracts.py` defines strict Pydantic models preventing hallucinations, nested deeply for consistency. |
+| **3. Validation + Repair Engine** | `Validator Agent` diffs schemas for 12 hardcoded integrity rules. Failures trigger the `Repair Agent` to surgically patch JSON differences up to 3 times before escalating to HITL. |
+| **4. Deterministic Behavior** | Forced JSON constraints, structured prompt variable injections, and zero-shot schema mappings. |
+| **5. Execution Awareness** | `Runtime Validator` logically executes multi-step CRUD flows across the generated schemas to ensure end-to-end viability before returning the final object. |
+| **6. Failure Handling (HITL)** | Built-in human-in-the-loop (HITL) system interrupts the pipeline if intent is `< 75%` confident, ambiguous, or if repair loops fail. |
+| **7. Evaluation Framework** | `eval/prompts.json` contains exactly 10 real product prompts and 10 adversarial/edge cases to measure latency, repairs, and token usage via the `/eval/results` API. |
 
 ---
 
