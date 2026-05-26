@@ -1,208 +1,232 @@
-# ProtoFlow
+<p align="center">
+  <img src="https://img.shields.io/badge/ProtoFlow-v1.2.0-blueviolet?style=for-the-badge" alt="ProtoFlow Version">
+  <img src="https://img.shields.io/badge/Engine-CrewAI%20v1.14+-orange?style=for-the-badge" alt="CrewAI Engine">
+  <img src="https://img.shields.io/badge/LLM-Groq%20Llama%203.3-red?style=for-the-badge" alt="Groq LLM">
+  <img src="https://img.shields.io/badge/Build-FastAPI%20%7C%20React-blue?style=for-the-badge" alt="Tech Stack">
+</p>
 
-**Natural language → validated, executable application schema**
-
-ProtoFlow is a multi-agent AI pipeline that takes a plain-English description of an application and produces a complete, cross-validated JSON schema covering every layer of the stack — database, REST API, UI, authentication, and business logic.
-
----
-
-## What it does
-
-You type: *"Build a CRM with contacts, deals, role-based access, and a premium analytics plan"*
-
-ProtoFlow runs a 10-agent pipeline and returns:
-
-- **Database schema** — normalised tables, columns, foreign keys, indexes, soft-delete
-- **REST API schema** — full CRUD endpoints, request/response bodies mapped to DB columns, auth requirements
-- **UI schema** — pages, components, forms, navigation, role-gated views
-- **Auth schema** — JWT strategy, roles, permissions matrix, premium plan gates
-- **Validation report** — cross-layer consistency check across all 12 rules
-- **Runtime report** — simulated CRUD flow proving the schema is executable
-- **Mermaid diagrams** — pipeline flow, ER diagram, API sequence diagram
+<h1 align="center">ProtoFlow</h1>
+<p align="center"><b>Natural language descriptions to cross-validated, simulated, and production-ready application schemas.</b></p>
 
 ---
 
-## Architecture
+## Technical Overview
 
+### What is ProtoFlow?
+ProtoFlow is an autonomous, multi-agent AI compiler designed to translate natural language product ideas into high-fidelity, cross-validated system blueprints. By orchestrating a pipeline of specialized LLM-powered agents, ProtoFlow models database schemas, generates REST API specifications, designs user interfaces, establishes security models, and runs simulated operations to guarantee consistency across all architectural layers.
+
+### What it does
+Given a natural language input describing a software product:
+> <samp>"Build a SaaS CRM containing contacts and deals, with role-based access control (Admin/Editor/Viewer) and a premium analytics plan gating certain views."</samp>
+
+ProtoFlow compiles and delivers a unified, production-ready schema including:
+* **Relational DB Schema:** Fully normalized SQL-ready schemas, relational mapping, primary/foreign key definitions, constraints, index placement, and automatic soft-delete mechanics.
+* **REST API Contracts:** Full CRUD endpoints, path/query parameter structures, and request/response bodies mapped directly to DB entities.
+* **UI Structure Layout:** Multi-page configurations, interactive components, input form validation definitions, and component-level visibility matrices.
+* **Auth & Policy Matrices:** Granular Role-Based Access Control (RBAC) definitions, JWT security schemes, and resource restrictions.
+* **Cross-Layer Validation Reports:** Comprehensive verification against structural integrity rules (e.g., matching database tables to endpoint routes and page permissions).
+* **Runtime Transaction Simulation:** Proof-of-correctness logs simulating insert, update, and read commands across the compiled schemas.
+
+### How it works
+ProtoFlow compiles application schemas through a 10-stage execution pipeline running under an asynchronous supervisor. While the schema design tasks (Database, API, UI, and Auth) are conceptually fanned out in parallel, they are executed in a sequential queue with rate-limit dampening to handle the constraints of free-tier LLM endpoints.
+
+---
+
+## Compiler Pipeline Architecture
+
+The flowchart below demonstrates the execution path from initial prompt to final compiled blueprints, illustrating the parallel design process and the self-healing repair cycle.
+
+```mermaid
+graph TD
+    classDef startEnd fill:#ECEFF1,stroke:#37474F,stroke-width:2px,color:#263238;
+    classDef stage fill:#E8EAF6,stroke:#3F51B5,stroke-width:2px,color:#1A237E;
+    classDef parallel fill:#E0F2F1,stroke:#009688,stroke-width:2px,color:#004D40;
+    classDef validate fill:#FFFDE7,stroke:#FBC02D,stroke-width:2px,color:#F57F17;
+    classDef repair fill:#FFF3E0,stroke:#FF9800,stroke-width:2px,color:#E65100;
+    
+    Prompt([User Prompt]) --> Intent[Stage 1: Intent Extraction]:::stage
+    Intent --> HITL{HITL Clarification}:::stage
+    HITL -- Clarification Needed --> Intent
+    HITL -- Approved --> Architect[Stage 2: Architecture Design]:::stage
+    
+    subgraph Schema Synthesis [Conceptual Parallel Schema Design]
+        Architect --> DB[Database Schema Agent]:::parallel
+        Architect --> API[REST API Schema Agent]:::parallel
+        Architect --> UI[UI Layout Schema Agent]:::parallel
+        Architect --> Auth[Auth & Security Agent]:::parallel
+    end
+    
+    DB --> Validate[Stage 4: Cross-Layer Validation]:::validate
+    API --> Validate
+    UI --> Validate
+    Auth --> Validate
+    
+    Validate --> Decision{Validation Passed?}:::validate
+    
+    Decision -- No --> Repair[Stage 5: Surgical Repair Loop]:::repair
+    Repair --> |Apply Schema Diff & Re-validate| Validate
+    
+    Decision -- Yes --> Simulate[Stage 6: Runtime Simulation]:::stage
+    Simulate --> LogMermaid[Stage 7: progress_logger & Mermaid Engine]:::stage
+    LogMermaid --> Output([Final Blueprints & Mermaid Diagrams]):::startEnd
 ```
-User Prompt
-    │
-    ▼
-┌─────────────────────────────────────────────────────────┐
-│  Stage 1: Intent Extraction          (HITL always-on)   │
-│  Stage 2: Architecture Design                           │
-│  Stage 3: DB + API + UI + Auth       (parallel)         │
-│  Stage 4: Cross-layer Validation                        │
-│  Stage 5: Surgical Repair Loop       (max 3 attempts)   │
-│  Stage 6: Runtime Simulation                            │
-│  Stage 7: Logging + Mermaid Diagrams                    │
-└─────────────────────────────────────────────────────────┘
-    │
-    ▼
-Complete FinalOutput JSON + SSE stream to frontend
-```
 
-**Tech stack:**
-- Backend: Python, FastAPI, CrewAI 1.14.5, Groq (llama-3.3-70b-versatile)
-- Frontend: React, Vite, TypeScript, Tailwind CSS, Lucide icons
-- LLM routing: Groq free tier — 1K RPM, 300K TPM, no rate limit issues
+> [!NOTE]
+> **Rate-Limit Mitigation:** The backend runs the parallel synthesis stages sequentially using a safe task queue to guarantee stability against Groq's 12,000 TPM limit, while keeping execution asynchronous to prevent blocking the FastAPI server thread.
 
 ---
 
-## Project structure
+## Agent Roster & Specializations
+
+ProtoFlow is powered by 10 specialized agent cards executing within the CrewAI framework:
+
+| Agent Badge | Operational Domain & Responsibility |
+| :--- | :--- |
+| ![Intent Extractor](https://img.shields.io/badge/Agent-Intent_Extractor-blueviolet?style=flat-square) | Parses input descriptions, calculates intent confidence, and pauses the pipeline for HITL input if specifications are sparse. |
+| ![System Architect](https://img.shields.io/badge/Agent-System_Architect-blue?style=flat-square) | Lays down the core entity relations, system domains, and relational dependencies. |
+| ![DB Schema Agent](https://img.shields.io/badge/Agent-DB_Schema_Agent-success?style=flat-square) | Builds highly detailed, normalized entity schemas complete with attributes, keys, and relational fields. |
+| ![API Schema Agent](https://img.shields.io/badge/Agent-API_Schema_Agent-green?style=flat-square) | Maps database structures into REST-compliant API contracts, routing structures, and request parameters. |
+| ![UI Schema Agent](https://img.shields.io/badge/Agent-UI_Schema_Agent-orange?style=flat-square) | Generates frontend routing, page hierarchies, component layouts, and binds user inputs to API targets. |
+| ![Auth Agent](https://img.shields.io/badge/Agent-Auth_Agent-red?style=flat-square) | Defines role hierarchies, mapping operations to security policies and resource permission sets. |
+| ![Validator Agent](https://img.shields.io/badge/Agent-Validator_Agent-yellow?style=flat-square) | Compares the DB, API, UI, and Auth structures against 12 rules of referential integrity and security. |
+| ![Repair Agent](https://img.shields.io/badge/Agent-Repair_Agent-lightgrey?style=flat-square) | Reviews schema failures, generates surgical diffs, and patches target components to avoid schema drift. |
+| ![Runtime Validator](https://img.shields.io/badge/Agent-Runtime_Validator-teal?style=flat-square) | Simulates operational logic (e.g., user creations, transaction inserts) to test consistency in execution. |
+| ![Progress Logger](https://img.shields.io/badge/Agent-Progress_Logger-informational?style=flat-square) | Tracks compiler status metrics and generates Mermaid diagram representations of the compiled systems. |
+
+---
+
+## Core Engineering Features
+
+### 1. Surgical Self-Healing Engine
+If validation fails, the compiler does not restart. Instead, the `Repair Agent` computes a precise JSON structural diff (`SchemaDiffTool`) between validation iterations. It modifies only the conflicting fields, preventing LLM regression and reducing API token usage.
+
+### 2. Event-Driven Asynchronous Server-Sent Events (SSE)
+FastAPI publishes state updates, token usage metrics, agent logs, and HITL flags over a single SSE channel (`/stream/{session_id}`). The React client hooks directly into this stream to update the compiler graph in real-time.
+
+### 3. LRU Prompt Cache & Rate Throttle
+To work effectively within Groq free-tier constraints (1,000 RPM, 300,000 TPM), ProtoFlow uses a memory-based LRU response cache (`LLMCache`) to bypass duplicate prompt calls and implements a configurable retry parser with backoff.
+
+### 4. Built-in Evaluation & Benchmarking Harness
+Contains a suite of **20 integration tests** covering:
+* **10 Real-world Prompts:** E-commerce, multi-tenant SaaS, healthcare portals, etc.
+* **10 Edge Cases:** Conflicting auth scopes, cyclic DB schemas, empty intents, and ambiguous instructions.
+* Run tests with: `POST /eval/run/{id}` to automatically log latency, token footprints, and self-healing success metrics.
+
+---
+
+## Directory Anatomy
 
 ```
 compiler/
 ├── src/compiler/
 │   ├── config/
-│   │   ├── agents.yaml        # All 10 agent definitions (Groq, max_rpm=5)
-│   │   └── tasks.yaml         # All 10 task definitions with HITL and async flags
+│   │   ├── agents.yaml            # Agent personality profiles & Groq parameters
+│   │   └── tasks.yaml             # Tasks config with HITL & asynchronous settings
 │   ├── eval/
-│   │   ├── runner.py          # Eval router — 20 test prompts, auto-metrics
-│   │   ├── recorder.py        # Records pipeline metrics to eval_results.json
-│   │   └── prompts.json       # 20 prompts: 10 real-world, 10 edge cases
+│   │   ├── runner.py              # Evaluator router and test orchestrator
+│   │   ├── recorder.py            # Records latency & validation rates to JSON
+│   │   └── prompts.json           # 20 standard evaluation benchmarks
 │   ├── schemas/
-│   │   └── contracts.py       # Pydantic models for all pipeline schemas
+│   │   └── contracts.py           # Strictly typed Pydantic compiler models
 │   ├── tools/
-│   │   ├── json_repair_tool.py    # Strips markdown fences, extracts JSON
-│   │   ├── schema_diff_tool.py    # Before/after diff for repair agent
-│   │   ├── mermaid_generator_tool.py  # Generates Mermaid diagram strings
-│   │   └── llm_cache.py           # In-process LRU cache for LLM responses
-│   ├── crew.py                # Pipeline orchestrator, repair loop, HITL, SSE
-│   └── main.py                # FastAPI app — all routes
+│   │   ├── json_repair_tool.py    # Parses JSON output blocks from LLM content
+│   │   ├── schema_diff_tool.py    # Structural comparison tool for schema patches
+│   │   ├── mermaid_generator_tool.py # Translates final schemas into Mermaid strings
+│   │   └── llm_cache.py           # In-memory caching layer
+│   ├── crew.py                    # Orchestrator with SSE emitting & repair loops
+│   └── main.py                    # FastAPI entrypoint
 ├── frontend/
 │   ├── src/
-│   │   ├── pages/             # HomePage, GeneratePage, ResultsPage
-│   │   ├── components/        # StageCard, PipelineProgress, HITLModal, etc.
-│   │   ├── hooks/             # useSSE — SSE connection with auto-reconnect
-│   │   └── api/               # client.ts, types.ts
+│   │   ├── pages/                 # HomePage, GeneratePage, ResultsPage
+│   │   ├── components/            # StageCard, ProgressLogs, HITLModal
+│   │   ├── hooks/                 # Custom SSE streaming hooks
+│   │   └── api/                   # HTTP client endpoints
 │   └── ...
-├── .env                       # Real keys (gitignored)
-├── .env.example               # Template
+├── .env.example
 └── pyproject.toml
 ```
 
 ---
 
-## Setup
+## Quick Start Guide
 
 ### Prerequisites
-- Python 3.10–3.13
-- Node.js 18+
-- [uv](https://docs.astral.sh/uv/) — `pip install uv`
-- Free Groq API key — [console.groq.com](https://console.groq.com)
+* **Python 3.10 – 3.13**
+* **Node.js 18+**
+* **uv** package manager installed (<kbd>pip install uv</kbd>)
+* A free **Groq API key** from [console.groq.com](https://console.groq.com)
 
-### 1. Clone and install backend
-
+### 1. Initialize and Sync Backend
 ```bash
 git clone https://github.com/Lokesh-916/ProtoFlow.git
 cd ProtoFlow
 uv sync
 ```
 
-### 2. Configure environment
-
-```bash
-cp .env.example .env
-# Edit .env and set GROQ_API_KEY=your_key_here
+### 2. Establish Environment Keys
+Create a `.env` file in the root directory:
+```env
+GROQ_API_KEY=your_groq_key_here
+MAX_REPAIR_LOOPS=3
+HITL_TIMEOUT_SECONDS=300
 ```
 
-### 3. Install frontend
-
+### 3. Setup UI Assets
 ```bash
 cd frontend
 npm install
 cp .env.local.example .env.local
-# VITE_API_URL=http://localhost:8000 is already set
 ```
 
 ---
 
-## Running
+## Running the Compiler
 
-**Terminal 1 — Backend:**
+Start the API backend and UI client in separate shell environments:
+
+**Terminal 1 — API Backend:**
 ```bash
 uv run uvicorn compiler.main:app --host 0.0.0.0 --port 8000 --reload
 ```
 
-**Terminal 2 — Frontend:**
+**Terminal 2 — React Client:**
 ```bash
 cd frontend
 npm run dev
 ```
 
-Open **http://localhost:5173**
+Open your browser to <kbd>http://localhost:5173</kbd> to access the workspace.
 
 ---
 
-## API routes
+## API & Communication Specifications
 
-| Method | Route | Description |
-|--------|-------|-------------|
-| `POST` | `/generate` | Start pipeline, returns `session_id` |
-| `GET`  | `/stream/{session_id}` | SSE stream of all pipeline events |
-| `POST` | `/clarify` | Resume pipeline after HITL input |
-| `GET`  | `/result/{session_id}` | Full FinalOutput JSON |
-| `GET`  | `/logs/{session_id}` | Markdown log as plain text |
-| `GET`  | `/health` | Health check |
-| `GET`  | `/eval/prompts` | List all 20 eval prompts with status |
-| `POST` | `/eval/run/{id}` | Run a specific eval prompt (skips HITL) |
-| `GET`  | `/eval/results` | Aggregated eval results and stats |
+### Backend Routes
 
-Interactive docs: **http://localhost:8000/docs**
+| Method | Endpoint | Description |
+| :--- | :--- | :--- |
+| `POST` | `/generate` | Accepts prompt, initializes compiler pipeline session. |
+| `GET` | `/stream/{session_id}` | Streams compilation logs, schema states, and validation runs. |
+| `POST` | `/clarify` | Resumes a compiler session paused by HITL prompts. |
+| `GET` | `/result/{session_id}` | Returns final fully compiled JSON blueprint. |
+| `GET` | `/eval/results` | Returns aggregated metrics and latency graphs. |
 
----
+### SSE Event Schema
 
-## Testing with curl
-
-```bash
-# Start a pipeline run
-curl -X POST http://localhost:8000/generate \
-  -H "Content-Type: application/json" \
-  -d '{"prompt": "CRM with contacts, deals, roles, and analytics"}'
-# Returns: {"session_id": "..."}
-
-# Run eval prompt #1 (no HITL, auto-records metrics)
-curl -X POST http://localhost:8000/eval/run/1
+```json
+{
+  "event": "stage_update",
+  "session_id": "session-xyz",
+  "stage": "db_schema",
+  "status": "complete",
+  "model": "groq/llama-3.3-70b-versatile",
+  "latency_ms": 1420,
+  "output_summary": "{\"tables\": [...]}"
+}
 ```
 
 ---
 
-## SSE event types
+## Authors
 
-| Event | When |
-|-------|------|
-| `stage_update` | After each stage starts, completes, fails, or triggers repair |
-| `hitl_required` | Pipeline paused — user input needed |
-| `log_update` | New log entry from progress_logger |
-| `pipeline_complete` | All stages done — includes final schema and Mermaid diagrams |
-| `pipeline_failed` | Unrecoverable error |
-
----
-
-## LLM configuration
-
-All 10 agents use **Groq — llama-3.3-70b-versatile** (free tier).
-
-| Limit | Value | Pipeline usage |
-|-------|-------|----------------|
-| RPM | 1,000 | ~15-20 calls per run |
-| TPM | 300,000 | ~50-100K tokens per run |
-
-`max_rpm: 5` is set in `agents.yaml` as a conservative throttle. A single Groq key handles the full pipeline without hitting limits.
-
----
-
-## Eval framework
-
-ProtoFlow includes a built-in evaluation framework with 20 prompts:
-- 10 real-world prompts (CRM, e-commerce, healthcare, SaaS, etc.)
-- 10 edge cases (empty intent, contradictions, extreme scope, ambiguity)
-
-Run all 20 via the `/eval/run/{id}` endpoint. Results are recorded to `src/compiler/eval/eval_results.json` with auto-metrics (latency, tokens, repair count, HITL triggers) and support for human judgment annotations.
-
----
-
-## Built by
-
-Lokesh — [github.com/Lokesh-916](https://github.com/Lokesh-916)
+* **Lokesh** — [@Lokesh-916](https://github.com/Lokesh-916)
