@@ -153,7 +153,6 @@ class ProtoFlowCrew:
         logger.debug("[crew] Building progress_logger agent.")
         return Agent(
             config=self.agents_config["progress_logger"],  # type: ignore[index]
-            tools=[self._mermaid_tool],
             verbose=True,
         )
 
