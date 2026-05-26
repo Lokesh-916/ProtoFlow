@@ -558,9 +558,13 @@ async def run_pipeline(session: PipelineSession) -> None:
                     if attempt < max_retries - 1:
                         # Parse "Please try again in 21.665s." or fallback to 30s
                         wait_time = 30.0
-                        match = re.search(r'try again in ([\d\.]+)s', err_str)
+                        match = re.search(r'try again in (?:(\d+)m)?([\d\.]+)s', err_str)
                         if match:
-                            wait_time = float(match.group(1)) + 2.0  # 2s buffer
+                            m_str = match.group(1)
+                            s_str = match.group(2)
+                            minutes = int(m_str) if m_str else 0
+                            seconds = float(s_str)
+                            wait_time = (minutes * 60) + seconds + 2.0  # 2s buffer
                         logger.warning(
                             "[session:%s] Rate limit hit for %s. Sleeping %.1fs before attempt %d. Error: %s",
                             session.session_id, task_name, wait_time, attempt + 2, err_str.split('"message":')[1].split(',"type"')[0] if '"message":' in err_str else err_str[:100]
