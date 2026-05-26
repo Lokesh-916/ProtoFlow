@@ -6,6 +6,8 @@
 task_extract_intent:
   description: >
     Parse the user's natural language prompt into a structured IntentSchema.
+    
+    User Prompt: {user_prompt}
 
     Extract the following fields:
     - app_type: the category of application (e.g. "CRM", "e-commerce", "project management")
@@ -48,6 +50,9 @@ task_extract_intent:
 task_design_architecture:
   description: >
     Take the IntentSchema from task_extract_intent and design the full application architecture.
+    
+    User Prompt: {user_prompt}
+    Intent Schema: {intent_schema}
 
     Define:
     - entities[]: all domain entities with their attributes and relationships
@@ -80,6 +85,9 @@ task_design_architecture:
 task_generate_db_schema:
   description: >
     Generate a complete relational database schema from the ArchitectureSchema.
+    
+    User Prompt: {user_prompt}
+    Architecture Schema: {architecture_schema}
 
     Rules:
     - Every entity in ArchitectureSchema MUST become a table.
@@ -110,6 +118,10 @@ task_generate_db_schema:
 task_generate_api_schema:
   description: >
     Generate a complete REST API schema from the ArchitectureSchema and DBSchema.
+    
+    User Prompt: {user_prompt}
+    Architecture Schema: {architecture_schema}
+    DB Schema: {db_schema}
 
     Rules:
     - Every endpoint's request_body and response_body fields MUST map exactly to existing
@@ -144,6 +156,10 @@ task_generate_api_schema:
 task_generate_ui_schema:
   description: >
     Generate a complete UI schema from the ArchitectureSchema and APISchema.
+    
+    User Prompt: {user_prompt}
+    Architecture Schema: {architecture_schema}
+    API Schema: {api_schema}
 
     Rules:
     - Every page MUST be defined with its components, layout, and navigation links.
@@ -173,6 +189,10 @@ task_generate_ui_schema:
 task_generate_auth_schema:
   description: >
     Generate the complete auth and roles schema from the ArchitectureSchema.
+    
+    User Prompt: {user_prompt}
+    Architecture Schema: {architecture_schema}
+    UI Schema: {ui_schema}
 
     Rules:
     - Default to JWT unless the user specified otherwise during clarification.
@@ -201,6 +221,9 @@ task_generate_auth_schema:
 task_validate_schemas:
   description: >
     Run full cross-layer consistency validation across all four schemas.
+    
+    User Prompt: {user_prompt}
+    All Schemas: {all_schemas}
 
     Check ALL of the following without exception:
     1. Every API request/response field exists as a DB column.
@@ -216,7 +239,7 @@ task_validate_schemas:
     11. All required fields (id, created_at, updated_at) exist on every table.
     12. All foreign key references point to existing tables and columns.
 
-    Produce a ValidationReport with:
+    Output a JSON object with:
     - is_valid (bool)
     - errors[] each with layer, field, description
     - warnings[] each with layer, field, description
@@ -244,6 +267,11 @@ task_validate_schemas:
 task_repair_schemas:
   description: >
     Triggered only when ValidationReport.is_valid is False.
+    
+    User Prompt: {user_prompt}
+    All Schemas: {all_schemas}
+    Validation Report: {validation_report}
+    Repair Attempt Number: {repair_attempt_number}
 
     For each error in ValidationReport.errors[]:
     1. Identify which layer is the source of truth for the conflicting data.
@@ -274,6 +302,9 @@ task_repair_schemas:
 task_validate_runtime:
   description: >
     Simulate execution of the complete validated schema set.
+    
+    User Prompt: {user_prompt}
+    All Schemas: {all_schemas}
 
     Steps:
     1. Walk every API endpoint and verify the DB tables/columns it references exist.
@@ -304,6 +335,9 @@ task_validate_runtime:
 task_log_progress:
   description: >
     This task runs after all other tasks complete.
+    
+    User Prompt: {user_prompt}
+    Session ID: {session_id}
 
     Append to the run log file after each stage:
     - Stage name, agent used, model, timestamp
