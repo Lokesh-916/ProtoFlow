@@ -191,7 +191,7 @@ export default function HomePage() {
           ProtoFlow — natural language to application schema
         </span>
         <span className="text-xs text-canvas-800 font-mono">
-          crewai 1.14.5 · openrouter
+          crewai 1.14.5 · groq
         </span>
       </footer>
     </div>

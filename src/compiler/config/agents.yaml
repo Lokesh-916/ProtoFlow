@@ -32,7 +32,7 @@ intent_extractor:
   max_iter: 3
   max_rpm: 5
   memory: false
-  cache: true
+  cache: false
 
 system_architect:
   role: >
@@ -51,7 +51,7 @@ system_architect:
   max_iter: 3
   max_rpm: 5
   memory: false
-  cache: true
+  cache: false
 
 db_schema_agent:
   role: >
@@ -70,7 +70,7 @@ db_schema_agent:
   max_iter: 3
   max_rpm: 5
   memory: false
-  cache: true
+  cache: false
 
 api_schema_agent:
   role: >
@@ -88,7 +88,7 @@ api_schema_agent:
   max_iter: 3
   max_rpm: 5
   memory: false
-  cache: true
+  cache: false
 
 ui_schema_agent:
   role: >
@@ -107,7 +107,7 @@ ui_schema_agent:
   max_iter: 3
   max_rpm: 5
   memory: false
-  cache: true
+  cache: false
 
 auth_agent:
   role: >
@@ -126,7 +126,7 @@ auth_agent:
   max_iter: 3
   max_rpm: 5
   memory: false
-  cache: true
+  cache: false
 
 validator_agent:
   role: >
@@ -204,4 +204,5 @@ progress_logger:
   max_iter: 2
   max_rpm: 5
   memory: false
-  cache: true
+  cache: false
+

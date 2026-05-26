@@ -11,7 +11,7 @@ Key responsibilities:
   - Hold the pipeline on HITL events using asyncio.Event
   - Write structured logs via the logging module (remove debug calls later)
 
-All LLM calls go through OpenRouter. Temperature is set per-agent via
+All LLM calls go through Groq via crewai LiteLLM routing. Temperature is set per-agent via
 the LLM config in main.py (not in YAML, because YAML does not support
 the full LLM config object).
 """
@@ -592,7 +592,7 @@ async def run_pipeline(session: PipelineSession) -> None:
 
     session.intent = await _run_stage(
         session, "intent_extraction",
-        "qwen/qwen3-coder:free", _stage_intent()
+        "groq/llama-3.3-70b-versatile", _stage_intent()
     )
 
     # ─────────────────────────────────────────────────────────────────────────
@@ -617,7 +617,7 @@ async def run_pipeline(session: PipelineSession) -> None:
 
     session.architecture = await _run_stage(
         session, "architecture_design",
-        "deepseek/deepseek-v4-flash:free", _stage_architecture()
+        "groq/llama-3.3-70b-versatile", _stage_architecture()
     )
 
     # ─────────────────────────────────────────────────────────────────────────
@@ -689,10 +689,10 @@ async def run_pipeline(session: PipelineSession) -> None:
 
     # Emit running events for all four parallel stages
     for stage_name, model in [
-        ("db_schema", "deepseek/deepseek-v4-flash:free"),
-        ("api_schema", "deepseek/deepseek-v4-flash:free"),
-        ("ui_schema", "qwen/qwen3-coder:free"),
-        ("auth_schema", "openai/gpt-oss-20b:free"),
+        ("db_schema", "groq/llama-3.3-70b-versatile"),
+        ("api_schema", "groq/llama-3.3-70b-versatile"),
+        ("ui_schema", "groq/llama-3.3-70b-versatile"),
+        ("auth_schema", "groq/llama-3.3-70b-versatile"),
     ]:
         await _emit(session, "stage_update", {
             "stage": stage_name, "status": "running",
@@ -713,10 +713,10 @@ async def run_pipeline(session: PipelineSession) -> None:
     )
 
     for stage_name, result, model in [
-        ("db_schema", db_result, "deepseek/deepseek-v4-flash:free"),
-        ("api_schema", api_result, "deepseek/deepseek-v4-flash:free"),
-        ("ui_schema", ui_result, "qwen/qwen3-coder:free"),
-        ("auth_schema", auth_result, "openai/gpt-oss-20b:free"),
+        ("db_schema", db_result, "groq/llama-3.3-70b-versatile"),
+        ("api_schema", api_result, "groq/llama-3.3-70b-versatile"),
+        ("ui_schema", ui_result, "groq/llama-3.3-70b-versatile"),
+        ("auth_schema", auth_result, "groq/llama-3.3-70b-versatile"),
     ]:
         await _emit(session, "stage_update", {
             "stage": stage_name, "status": "complete",
@@ -761,7 +761,7 @@ async def run_pipeline(session: PipelineSession) -> None:
 
         validation = await _run_stage(
             session, "validation",
-            "deepseek/deepseek-v4-flash:free", _stage_validate()
+            "groq/llama-3.3-70b-versatile", _stage_validate()
         )
 
         if validation.get("is_valid", False):
@@ -779,7 +779,7 @@ async def run_pipeline(session: PipelineSession) -> None:
         await _emit(session, "stage_update", {
             "stage": "validation",
             "status": "repair_triggered",
-            "model": "deepseek/deepseek-v4-flash:free",
+            "model": "groq/llama-3.3-70b-versatile",
             "latency_ms": session.stage_latencies.get("validation", 0),
             "output_summary": f"{len(errors)} errors found",
             "conflicts": [e.get("description", "") for e in validation.get("conflicts", [])],
@@ -841,7 +841,7 @@ async def run_pipeline(session: PipelineSession) -> None:
 
         await _run_stage(
             session, "repair",
-            "qwen/qwen3-coder:free", _stage_repair()
+            "groq/llama-3.3-70b-versatile", _stage_repair()
         )
 
         # Rebuild for next validation pass
@@ -877,7 +877,7 @@ async def run_pipeline(session: PipelineSession) -> None:
 
     await _run_stage(
         session, "runtime_validation",
-        "openai/gpt-oss-20b:free", _stage_runtime()
+        "groq/llama-3.3-70b-versatile", _stage_runtime()
     )
 
     # ─────────────────────────────────────────────────────────────────────────
@@ -911,7 +911,7 @@ async def run_pipeline(session: PipelineSession) -> None:
 
     await _run_stage(
         session, "logging",
-        "openai/gpt-oss-20b:free", _stage_logging()
+        "groq/llama-3.3-70b-versatile", _stage_logging()
     )
 
     # ─────────────────────────────────────────────────────────────────────────

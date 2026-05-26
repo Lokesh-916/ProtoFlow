@@ -12,7 +12,7 @@ Routes:
   GET  /health            — health check
 
 All route handlers are async. All file I/O uses aiofiles.
-All LLM calls go through OpenRouter via crewai LiteLLM routing.
+All LLM calls go through Groq via crewai LiteLLM routing.
 """
 
 from __future__ import annotations
@@ -38,6 +38,17 @@ from sse_starlette.sse import EventSourceResponse
 
 # ── Load .env before anything else ───────────────────────────────────────────
 load_dotenv()
+
+# ── Fix: Disable CrewAI prompt cache_breakpoint injection ─────────────────────
+# CrewAI injects a 'cache_breakpoint' key into system messages for Anthropic
+# prompt caching. Groq does not support this property and rejects it with:
+#   "property 'cache_breakpoint' is unsupported"
+# This monkey-patch disables the injection entirely.
+try:
+    import crewai.llms.cache as _crewai_cache
+    _crewai_cache.mark_cache_breakpoint = lambda msg: msg  # no-op
+except (ImportError, AttributeError):
+    pass  # If the module doesn't exist in this version, no action needed
 
 # ── Logging setup ─────────────────────────────────────────────────────────────
 LOG_LEVEL = os.getenv("LOG_LEVEL", "debug").upper()

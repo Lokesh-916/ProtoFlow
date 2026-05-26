@@ -72,16 +72,16 @@ export type SSEEvent =
 
 // Stage display metadata
 export const STAGE_META: Record<string, { label: string; model: string }> = {
-  intent_extraction:    { label: "Intent Extraction",    model: "qwen3-coder" },
-  architecture_design:  { label: "Architecture Design",  model: "deepseek-v4-flash" },
-  db_schema:            { label: "DB Schema",            model: "deepseek-v4-flash" },
-  api_schema:           { label: "API Schema",           model: "deepseek-v4-flash" },
-  ui_schema:            { label: "UI Schema",            model: "qwen3-coder" },
-  auth_schema:          { label: "Auth Schema",          model: "gpt-oss-20b" },
-  validation:           { label: "Validation",           model: "deepseek-v4-flash" },
-  repair:               { label: "Repair",               model: "qwen3-coder" },
-  runtime_validation:   { label: "Runtime Validation",   model: "gpt-oss-20b" },
-  logging:              { label: "Logging & Diagrams",   model: "gpt-oss-20b" },
+  intent_extraction:    { label: "Intent Extraction",    model: "llama-3.3-70b" },
+  architecture_design:  { label: "Architecture Design",  model: "llama-3.3-70b" },
+  db_schema:            { label: "DB Schema",            model: "llama-3.3-70b" },
+  api_schema:           { label: "API Schema",           model: "llama-3.3-70b" },
+  ui_schema:            { label: "UI Schema",            model: "llama-3.3-70b" },
+  auth_schema:          { label: "Auth Schema",          model: "llama-3.3-70b" },
+  validation:           { label: "Validation",           model: "llama-3.3-70b" },
+  repair:               { label: "Repair",               model: "llama-3.3-70b" },
+  runtime_validation:   { label: "Runtime Validation",   model: "llama-3.3-70b" },
+  logging:              { label: "Logging & Diagrams",   model: "llama-3.3-70b" },
 };
 
 export const STAGE_ORDER = Object.keys(STAGE_META);

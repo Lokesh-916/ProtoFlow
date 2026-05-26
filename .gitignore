@@ -19,6 +19,9 @@ AGENTS.md
 backend/logs/
 *.log
 
+# Eval runtime data
+src/compiler/eval/eval_results.json
+
 # Frontend build artifacts
 frontend/node_modules/
 frontend/.next/
