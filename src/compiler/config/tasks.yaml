@@ -97,7 +97,6 @@ task_generate_db_schema:
     - Define all foreign keys with: column, references_table, references_column, on_delete action.
     - Define indexes for all foreign key columns and frequently queried columns.
     - Define junction tables for all many-to-many relations.
-    - If any relation cardinality is ambiguous, ask one follow-up clarification via hitl_required.
 
     Respond only with valid JSON. No prose, no markdown fences, no explanation.
   expected_output: >
@@ -131,7 +130,6 @@ task_generate_api_schema:
     - Group endpoints by resource/entity.
     - Include standard CRUD endpoints (GET list, GET by id, POST, PUT, DELETE) for each entity.
     - Include pagination parameters (page, page_size) on all list endpoints.
-    - If any endpoint's required role is ambiguous, ask one follow-up clarification via hitl_required.
 
     Respond only with valid JSON. No prose, no markdown fences, no explanation.
   expected_output: >
@@ -167,7 +165,6 @@ task_generate_ui_schema:
     - Every role-gated view MUST reference a role defined in ArchitectureSchema.
     - Define navigation structure and routing (path, page title, role_required).
     - Define components per page with their type, props, and data source (API endpoint).
-    - If any page's role-gating requirements are unclear, ask one follow-up via hitl_required.
 
     Respond only with valid JSON. No prose, no markdown fences, no explanation.
   expected_output: >
@@ -202,7 +199,6 @@ task_generate_auth_schema:
       token_config{expiry_seconds, refresh_expiry_seconds, algorithm}.
     - Every role referenced anywhere in UISchema or APISchema MUST exist in roles[].
     - Every resource in permissions_matrix MUST correspond to a DB table.
-    - If premium plan boundaries are not clearly defined, ask one follow-up via hitl_required.
 
     Respond only with valid JSON. No prose, no markdown fences, no explanation.
   expected_output: >
