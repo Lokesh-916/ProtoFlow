@@ -27,6 +27,19 @@ import time
 from typing import TYPE_CHECKING, Any, Callable, Coroutine, Optional
 
 import yaml as _yaml
+import litellm
+
+# Monkey-patch litellm to strip `cache_breakpoint` from messages.
+# CrewAI 1.14+ injects this for Anthropic, but Groq strictly rejects it with a 400 Bad Request.
+original_completion = litellm.completion
+def patched_completion(*args, **kwargs):
+    if "messages" in kwargs:
+        for msg in kwargs["messages"]:
+            if "cache_breakpoint" in msg:
+                del msg["cache_breakpoint"]
+    return original_completion(*args, **kwargs)
+litellm.completion = patched_completion
+
 from crewai import Agent, Crew, LLM, Process, Task
 from crewai.project import CrewBase, agent, crew, task
 from crewai.agents.agent_builder.base_agent import BaseAgent
@@ -569,6 +582,7 @@ async def run_pipeline(session: PipelineSession) -> None:
                 tasks=[task_obj],
                 verbose=True,
                 memory=False,  # No OpenAI embedder; avoids ChromaDB CHROMA_OPENAI_API_KEY error
+                cache=False,   # Disable LLM caching to avoid returning stale broken outputs
             )
             
             try:
@@ -638,10 +652,28 @@ async def run_pipeline(session: PipelineSession) -> None:
             session.session_id, len(raw),
         )
         parsed = extract_json(raw)
-        if isinstance(parsed, list) and len(parsed) > 0 and isinstance(parsed[0], dict):
-            logger.warning("[session:%s] LLM wrapped output in list. Extracting first dict element.", session.session_id)
-            parsed = parsed[0]
-            
+
+        # Unwrap nested dict if LLM wraps it in a stage name key (e.g. {"api_schema": {...}})
+        if isinstance(parsed, dict) and len(parsed) == 1:
+            first_key = list(parsed.keys())[0]
+            if first_key in ["db_schema", "api_schema", "ui_schema", "auth_schema"]:
+                logger.warning("[session:%s] Unwrapping nested LLM output %s", session.session_id, first_key)
+                parsed = parsed[first_key]
+
+        # Wrap lists in expected root keys if LLM forgot the root object
+        if isinstance(parsed, list):
+            logger.warning("[session:%s] LLM wrapped output in list. Fixing based on task_name: %s", session.session_id, task_name)
+            if task_name == "task_generate_api_schema":
+                parsed = {"endpoints": parsed}
+            elif task_name == "task_generate_ui_schema":
+                parsed = {"pages": parsed}
+            elif task_name == "task_generate_db_schema":
+                parsed = {"tables": parsed}
+            elif len(parsed) > 0 and isinstance(parsed[0], dict):
+                parsed = parsed[0]
+            else:
+                parsed = {}
+                
         if not isinstance(parsed, dict):
             logger.error(
                 "[session:%s] LLM output parsed as %s instead of dict. Coercing to empty dict.",
