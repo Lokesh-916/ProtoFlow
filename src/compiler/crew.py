@@ -113,8 +113,9 @@ class ProtoFlowCrew:
         logger.debug("[crew] Building intent_extractor agent.")
         return Agent(
             config=self.agents_config["intent_extractor"],  # type: ignore[index]
-            llm=LLM(model="groq/llama-3.3-70b-versatile", temperature=0.4),
+            llm=LLM(model="groq/llama-3.3-70b-versatile", temperature=0.1),
             verbose=True,
+            cache=False,
         )
 
     @agent
@@ -122,8 +123,9 @@ class ProtoFlowCrew:
         logger.debug("[crew] Building system_architect agent.")
         return Agent(
             config=self.agents_config["system_architect"],  # type: ignore[index]
-            llm=LLM(model="groq/llama-3.3-70b-versatile", temperature=0.3),
+            llm=LLM(model="groq/llama-3.3-70b-versatile", temperature=0.2),
             verbose=True,
+            cache=False,
         )
 
     @agent
@@ -133,6 +135,7 @@ class ProtoFlowCrew:
             config=self.agents_config["db_schema_agent"],  # type: ignore[index]
             llm=LLM(model="groq/llama-3.3-70b-versatile", temperature=0.2),
             verbose=True,
+            cache=False,
         )
 
     @agent
@@ -142,6 +145,7 @@ class ProtoFlowCrew:
             config=self.agents_config["api_schema_agent"],  # type: ignore[index]
             llm=LLM(model="groq/llama-3.3-70b-versatile", temperature=0.2),
             verbose=True,
+            cache=False,
         )
 
     @agent
@@ -151,6 +155,7 @@ class ProtoFlowCrew:
             config=self.agents_config["ui_schema_agent"],  # type: ignore[index]
             llm=LLM(model="groq/llama-3.3-70b-versatile", temperature=0.2),
             verbose=True,
+            cache=False,
         )
 
     @agent
@@ -160,6 +165,7 @@ class ProtoFlowCrew:
             config=self.agents_config["auth_agent"],  # type: ignore[index]
             llm=LLM(model="groq/llama-3.3-70b-versatile", temperature=0.2),
             verbose=True,
+            cache=False,
         )
 
     @agent
@@ -169,6 +175,7 @@ class ProtoFlowCrew:
             config=self.agents_config["validator_agent"],  # type: ignore[index]
             llm=LLM(model="groq/openai/gpt-oss-120b", temperature=0.1),
             verbose=True,
+            cache=False,
         )
 
     @agent
@@ -178,6 +185,7 @@ class ProtoFlowCrew:
             config=self.agents_config["repair_agent"],  # type: ignore[index]
             llm=LLM(model="groq/openai/gpt-oss-120b", temperature=0.2),
             verbose=True,
+            cache=False,
         )
 
     @agent
@@ -187,6 +195,7 @@ class ProtoFlowCrew:
             config=self.agents_config["runtime_validator"],  # type: ignore[index]
             llm=LLM(model="groq/openai/gpt-oss-120b", temperature=0.1),
             verbose=True,
+            cache=False,
         )
 
     @agent
@@ -196,6 +205,7 @@ class ProtoFlowCrew:
             config=self.agents_config["progress_logger"],  # type: ignore[index]
             llm=LLM(model="groq/openai/gpt-oss-120b", temperature=0.3),
             verbose=True,
+            cache=False,
         )
 
     # ── Task factory methods ──────────────────────────────────────────────────

@@ -110,8 +110,6 @@ task_generate_db_schema:
       relations (array describing logical relations to other tables)
     ).
   agent: db_schema_agent
-  context:
-    - task_design_architecture
   async_execution: true
 
 task_generate_api_schema:
@@ -146,9 +144,6 @@ task_generate_api_schema:
       error_responses (array of objects with status_code and description)
     ).
   agent: api_schema_agent
-  context:
-    - task_design_architecture
-    - task_generate_db_schema
   async_execution: true
 
 task_generate_ui_schema:
@@ -178,9 +173,6 @@ task_generate_ui_schema:
       navigation_links (array of objects with label, path, role_required)
     ).
   agent: ui_schema_agent
-  context:
-    - task_design_architecture
-    - task_generate_api_schema
   async_execution: true
 
 task_generate_auth_schema:
@@ -209,9 +201,6 @@ task_generate_auth_schema:
     premium_plan_gates (object: plan_name -> object with features array and restrictions array),
     token_config (object with expiry_seconds, refresh_expiry_seconds, algorithm).
   agent: auth_agent
-  context:
-    - task_design_architecture
-    - task_generate_ui_schema
   async_execution: true
 
 task_validate_schemas:
