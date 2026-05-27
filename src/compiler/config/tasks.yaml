@@ -287,7 +287,7 @@ task_log_progress:
 
     Create log entries with: stage name, latency, assumptions, conflicts, repair triggers.
     Generate 3 valid Mermaid diagrams: 1) Pipeline flowchart showing repair/HITL triggers (mermaid_pipeline) 2) ER diagram from DB schema (mermaid_er) 3) Sequence diagram for primary entity API flow (mermaid_sequence).
-    For all Mermaid diagrams, apply a visually pleasing blue-grey theme (e.g. using `%%{init: {'theme': 'base', 'themeVariables': { 'primaryColor': '#334155', 'primaryTextColor': '#f8fafc', 'primaryBorderColor': '#475569', 'lineColor': '#64748b'}}}%%`).
+    For all Mermaid diagrams, apply a visually pleasing rust/orange theme matching the UI (e.g. using `%%{init: {'theme': 'base', 'themeVariables': { 'primaryColor': '#2a2520', 'primaryTextColor': '#f7f6f3', 'primaryBorderColor': '#e86d2a', 'lineColor': '#ef8a52'}}}%%`).
     Respond only with valid JSON.
   expected_output: >
     Valid JSON: log_entries [objects], mermaid_pipeline (string), mermaid_er (string), mermaid_sequence (string).
