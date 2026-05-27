@@ -1,1 +1,83 @@
-[]
+[
+  {
+    "prompt_id": 1,
+    "label": "Multi-role CRM",
+    "category": "real",
+    "difficulty": "hard",
+    "session_id": "e109c8e6-8402-42dd-84ba-358bd4230dba",
+    "run_at": "2026-05-27T08:44:50.299763Z",
+    "auto_metrics": {
+      "pipeline_completed": true,
+      "total_latency_ms": 158327,
+      "total_tokens": 13423,
+      "repair_count": 2,
+      "repair_succeeded": false,
+      "hitl_triggered": false,
+      "hitl_count": 0,
+      "hitl_stages": [],
+      "validation_passed": false,
+      "runtime_viable": false,
+      "stages_completed": [
+        "intent_extraction",
+        "architecture_design",
+        "db_schema",
+        "api_schema",
+        "ui_schema",
+        "auth_schema",
+        "validation"
+      ],
+      "stages_failed": [
+        "repair",
+        "runtime_validation",
+        "logging"
+      ],
+      "assumptions_count": 4,
+      "conflicts_count": 1,
+      "confidence_scores": {
+        "intent_extraction": 0.8
+      }
+    },
+    "human_judgment": null,
+    "human_notes": null,
+    "failure_category": null
+  },
+  {
+    "prompt_id": 11,
+    "label": "Empty intent",
+    "category": "edge",
+    "difficulty": "adversarial",
+    "session_id": "499f6e37-b447-45d7-9db7-3df4f7837d44",
+    "run_at": "2026-05-27T08:45:47.210711Z",
+    "auto_metrics": {
+      "pipeline_completed": true,
+      "total_latency_ms": 26061,
+      "total_tokens": 11090,
+      "repair_count": 1,
+      "repair_succeeded": true,
+      "hitl_triggered": false,
+      "hitl_count": 0,
+      "hitl_stages": [],
+      "validation_passed": true,
+      "runtime_viable": false,
+      "stages_completed": [
+        "intent_extraction",
+        "architecture_design",
+        "db_schema",
+        "api_schema",
+        "ui_schema",
+        "auth_schema",
+        "validation",
+        "repair",
+        "runtime_validation",
+        "logging"
+      ],
+      "stages_failed": [],
+      "assumptions_count": 0,
+      "conflicts_count": 0,
+      "confidence_scores": {}
+    },
+    "human_judgment": null,
+    "human_notes": null,
+    "failure_category": null
+  }
+]

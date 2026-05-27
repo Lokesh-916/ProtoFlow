@@ -32,7 +32,8 @@ export default function MermaidDiagram({ title, source }: MermaidDiagramProps) {
 
     console.log("[MermaidDiagram] Rendering diagram:", title, "length:", source.length);
 
-    mermaid.render(idRef.current, source)
+    const formattedSource = source.replace(/\\n/g, '\n');
+    mermaid.render(idRef.current, formattedSource)
       .then(({ svg }) => {
         if (containerRef.current) {
           containerRef.current.innerHTML = svg;

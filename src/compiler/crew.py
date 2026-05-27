@@ -638,6 +638,10 @@ async def run_pipeline(session: PipelineSession) -> None:
             session.session_id, len(raw),
         )
         parsed = extract_json(raw)
+        if isinstance(parsed, list) and len(parsed) > 0 and isinstance(parsed[0], dict):
+            logger.warning("[session:%s] LLM wrapped output in list. Extracting first dict element.", session.session_id)
+            parsed = parsed[0]
+            
         if not isinstance(parsed, dict):
             logger.error(
                 "[session:%s] LLM output parsed as %s instead of dict. Coercing to empty dict.",
@@ -806,14 +810,13 @@ async def run_pipeline(session: PipelineSession) -> None:
     # ─────────────────────────────────────────────────────────────────────────
     # STAGE 4 + 5 — Validation + Repair loop
     # ─────────────────────────────────────────────────────────────────────────
-    all_schemas_json = _compact({
-        "db_schema": session.db_schema,
-        "api_schema": session.api_schema,
-        "ui_schema": session.ui_schema,
-        "auth_schema": session.auth_schema,
-    })
-
     for attempt in range(1, MAX_REPAIR_LOOPS + 1):
+        all_schemas_json = _compact({
+            "db_schema": session.db_schema,
+            "api_schema": session.api_schema,
+            "ui_schema": session.ui_schema,
+            "auth_schema": session.auth_schema,
+        })
         logger.info(
             "[session:%s] Validation attempt %d/%d.",
             session.session_id, attempt, MAX_REPAIR_LOOPS,
