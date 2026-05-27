@@ -220,42 +220,17 @@ task_generate_auth_schema:
 
 task_validate_schemas:
   description: >
-    Run full cross-layer consistency validation across all four schemas.
+    Run cross-layer consistency validation across DB, API, UI, and Auth schemas.
     
     User Prompt: {user_prompt}
     All Schemas: {all_schemas}
 
-    Check ALL of the following without exception:
-    1. Every API request/response field exists as a DB column.
-    2. Every UI form field maps to an API endpoint input field.
-    3. Every role in UI/API exists in AuthSchema roles[].
-    4. Every protected API endpoint has a matching permission in AuthSchema.
-    5. Every entity in Architecture has a DB table.
-    6. Every DB table has at least one API endpoint.
-    7. Every API endpoint has at least one UI trigger (button, form, or link).
-    8. Premium gating in Auth matches business_rules in Architecture.
-    9. No circular dependencies in entity relations.
-    10. No orphaned entities, endpoints, or UI components.
-    11. All required fields (id, created_at, updated_at) exist on every table.
-    12. All foreign key references point to existing tables and columns.
+    Check: 1) API fields match DB columns 2) UI forms map to API inputs 3) Roles in UI/API exist in Auth 4) Protected endpoints have Auth permissions 5) Every Architecture entity has a DB table 6) Every table has API endpoints 7) Premium gating matches business rules 8) No circular deps 9) No orphans 10) Required fields (id, created_at, updated_at) exist 11) FK references are valid.
 
-    Output a JSON object with:
-    - is_valid (bool)
-    - errors[] each with layer, field, description
-    - warnings[] each with layer, field, description
-    - conflicts[] each with description and resolution_strategy
-    - validated_at (ISO timestamp)
-
-    If is_valid is False, the repair loop will be triggered automatically.
-
-    Respond only with valid JSON. No prose, no markdown fences, no explanation.
+    Output: is_valid (bool), errors[], warnings[], conflicts[], validated_at.
+    Respond only with valid JSON.
   expected_output: >
-    Valid ValidationReport JSON with fields:
-    is_valid (bool),
-    errors (array of ErrorEntry with layer, field, description),
-    warnings (array of WarningEntry with layer, field, description),
-    conflicts (array of ConflictEntry with description, resolution_strategy),
-    validated_at (ISO 8601 timestamp string).
+    Valid ValidationReport JSON: is_valid (bool), errors [{layer,field,description}], warnings [{layer,field,description}], conflicts [{description,resolution_strategy}], validated_at (ISO timestamp).
   agent: validator_agent
   context:
     - task_generate_db_schema
@@ -266,34 +241,19 @@ task_validate_schemas:
 
 task_repair_schemas:
   description: >
-    Triggered only when ValidationReport.is_valid is False.
+    Fix errors from ValidationReport. Only triggered when is_valid is False.
     
     User Prompt: {user_prompt}
     All Schemas: {all_schemas}
     Validation Report: {validation_report}
     Repair Attempt Number: {repair_attempt_number}
 
-    For each error in ValidationReport.errors[]:
-    1. Identify which layer is the source of truth for the conflicting data.
-    2. Repair ONLY the broken layer — never modify the source-of-truth layer.
-    3. Produce a before/after diff for every change made.
-
-    Repair loop rules:
-    - Maximum 3 repair attempts total.
-    - Each attempt must fix at least one new error (no infinite loops).
-    - If the same error persists after 2 attempts, escalate to HITL with a specific
-      question asking the user to resolve the conflict manually.
-    - Never do a full pipeline retry — only surgical targeted fixes.
-
-    Return updated schemas for all modified layers along with the repair report.
-
-    Respond only with valid JSON. No prose, no markdown fences, no explanation.
+    For each error: identify source-of-truth layer, fix ONLY the broken layer, produce before/after diff.
+    Max 3 attempts. Each must fix ≥1 new error. If same error persists after 2 attempts, escalate to HITL.
+    Return updated schemas for modified layers plus repair report.
+    Respond only with valid JSON.
   expected_output: >
-    Valid RepairReport JSON with fields:
-    repairs (array of DiffEntry with error_description, layer_fixed, field_fixed, before, after),
-    updated_schemas (object containing only the modified schema layers with their full updated content),
-    repair_attempt_number (integer 1-3),
-    unresolved_errors (array of error descriptions that could not be fixed automatically).
+    Valid RepairReport JSON: repairs [{error_description,layer_fixed,field_fixed,before,after}], updated_schemas {layer_name: full_schema}, repair_attempt_number (int), unresolved_errors [strings].
   agent: repair_agent
   context:
     - task_validate_schemas
@@ -301,31 +261,17 @@ task_repair_schemas:
 
 task_validate_runtime:
   description: >
-    Simulate execution of the complete validated schema set.
+    Simulate execution of the validated schema set.
     
     User Prompt: {user_prompt}
     All Schemas: {all_schemas}
 
-    Steps:
-    1. Walk every API endpoint and verify the DB tables/columns it references exist.
-    2. Walk every UI page and verify every component has a mapped API call.
-    3. Verify every auth-protected route has a matching permission in AuthSchema.
-    4. Simulate a complete CRUD flow for the primary entity end-to-end across all layers:
-       - CREATE: UI form -> API POST -> DB INSERT
-       - READ: UI list page -> API GET list -> DB SELECT
-       - UPDATE: UI edit form -> API PUT -> DB UPDATE
-       - DELETE: UI delete button -> API DELETE -> DB soft-delete
-    5. Trace each step and record pass/fail.
-
-    Output execution_viable (bool). If False, this is a blocking issue.
-
-    Respond only with valid JSON. No prose, no markdown fences, no explanation.
+    Verify: 1) API endpoints reference existing DB tables/columns 2) UI components have mapped API calls 3) Auth-protected routes have matching permissions.
+    Simulate CRUD flow for the primary entity: CREATE (form→POST→INSERT), READ (list→GET→SELECT), UPDATE (edit→PUT→UPDATE), DELETE (button→DELETE→soft-delete).
+    Output execution_viable (bool), simulated_flows[], blocking_issues[], warnings[].
+    Respond only with valid JSON.
   expected_output: >
-    Valid RuntimeReport JSON with fields:
-    execution_viable (bool),
-    simulated_flows (array of SimulatedFlow with name, steps array, result: "pass" or "fail"),
-    blocking_issues (array of strings describing unresolvable issues),
-    warnings (array of strings describing non-blocking concerns).
+    Valid RuntimeReport JSON: execution_viable (bool), simulated_flows [{name,steps[],result}], blocking_issues [strings], warnings [strings].
   agent: runtime_validator
   context:
     - task_validate_schemas
@@ -334,38 +280,17 @@ task_validate_runtime:
 
 task_log_progress:
   description: >
-    This task runs after all other tasks complete.
+    Generate pipeline log and Mermaid diagrams after all stages complete.
     
     User Prompt: {user_prompt}
     Session ID: {session_id}
 
-    Append to the run log file after each stage:
-    - Stage name, agent used, model, timestamp
-    - Latency in ms
-    - Input summary (< 50 words)
-    - Output summary (< 50 words)
-    - Confidence score if available
-    - Assumptions made in this stage
-    - Conflicts detected and resolved
-    - Whether repair was triggered
-    - Tokens used if available
-
-    At pipeline completion, generate and append:
-    1. Mermaid flowchart of full pipeline execution showing which stages triggered
-       repair and which triggered HITL (field: mermaid_pipeline).
-    2. Mermaid ER diagram from DBSchema (field: mermaid_er).
-    3. Mermaid sequence diagram for primary entity API flow (field: mermaid_sequence).
-
-    All three Mermaid strings MUST be syntactically valid Mermaid.
-    Stream every log entry to the frontend via SSE event type: log_update.
-
-    Respond only with valid JSON. No prose, no markdown fences, no explanation.
+    Create log entries with: stage name, latency, assumptions, conflicts, repair triggers.
+    Generate 3 valid Mermaid diagrams: 1) Pipeline flowchart showing repair/HITL triggers (mermaid_pipeline) 2) ER diagram from DB schema (mermaid_er) 3) Sequence diagram for primary entity API flow (mermaid_sequence).
+    For all Mermaid diagrams, apply a visually pleasing blue-grey theme (e.g. using `%%{init: {'theme': 'base', 'themeVariables': { 'primaryColor': '#334155', 'primaryTextColor': '#f8fafc', 'primaryBorderColor': '#475569', 'lineColor': '#64748b'}}}%%`).
+    Respond only with valid JSON.
   expected_output: >
-    Valid JSON with fields:
-    log_entries (array of log entry objects),
-    mermaid_pipeline (string: valid Mermaid flowchart),
-    mermaid_er (string: valid Mermaid erDiagram),
-    mermaid_sequence (string: valid Mermaid sequenceDiagram).
+    Valid JSON: log_entries [objects], mermaid_pipeline (string), mermaid_er (string), mermaid_sequence (string).
   agent: progress_logger
   context:
     - task_validate_runtime

@@ -21,17 +21,16 @@ from __future__ import annotations
 import asyncio
 import json
 import logging
+import os
+import re
 import time
 from typing import TYPE_CHECKING, Any, Callable, Coroutine, Optional
 
-from crewai import Agent, Crew, Process, Task
+import yaml as _yaml
+from crewai import Agent, Crew, LLM, Process, Task
 from crewai.project import CrewBase, agent, crew, task
 from crewai.agents.agent_builder.base_agent import BaseAgent
-
-from compiler.tools.json_repair_tool import JSONRepairTool, extract_json
-from compiler.tools.mermaid_generator_tool import MermaidGeneratorTool
-from compiler.tools.schema_diff_tool import SchemaDiffTool
-from compiler.tools.llm_cache import llm_cache
+from compiler.tools.json_repair_tool import extract_json
 
 if TYPE_CHECKING:
     from compiler.schemas.contracts import (
@@ -42,14 +41,40 @@ if TYPE_CHECKING:
 
 logger = logging.getLogger("protoflow.crew")
 
-# ── Type alias for the SSE emitter callback ───────────────────────────────────
-# crew.py calls this to push events to the session's SSE queue.
-# Signature: async (session_id: str, event_type: str, payload: dict) -> None
 SSEEmitter = Callable[[str, str, dict], Coroutine[Any, Any, None]]
 
-import os
 MAX_REPAIR_LOOPS = int(os.getenv("MAX_REPAIR_LOOPS", "3"))
 HITL_TIMEOUT_SECONDS = int(os.getenv("HITL_TIMEOUT_SECONDS", "300"))
+
+import random
+# Load all available Groq API keys from env
+GROQ_KEYS = [v for k, v in os.environ.items() if k.startswith("GROQ_API_KEY") and v.strip()]
+if not GROQ_KEYS and os.environ.get("GROQ_API_KEY"):
+    GROQ_KEYS = [os.environ.get("GROQ_API_KEY")]
+
+
+# ── Schema compaction ─────────────────────────────────────────────────────────
+
+
+def _compact(data: Optional[dict]) -> str:
+    """Strip verbose text fields to reduce token count for downstream LLM calls.
+    Removes description, default_value, error_responses, navigation_links,
+    props, and validation fields recursively. Keeps all structural fields
+    (names, types, paths, columns, endpoints, roles, permissions).
+    """
+    if not data:
+        return "{}"
+    _VERBOSE = frozenset({
+        "description", "backstory", "default_value",
+        "error_responses", "navigation_links", "props", "validation",
+    })
+    def _rec(obj: Any) -> Any:
+        if isinstance(obj, dict):
+            return {k: _rec(v) for k, v in obj.items() if k not in _VERBOSE}
+        if isinstance(obj, list):
+            return [_rec(i) for i in obj]
+        return obj
+    return json.dumps(_rec(data), separators=(',', ':'))
 
 
 # ── CrewBase class ────────────────────────────────────────────────────────────
@@ -68,12 +93,6 @@ class ProtoFlowCrew:
     agents_config = "config/agents.yaml"
     tasks_config = "config/tasks.yaml"
 
-    # ── Shared tools (attached to agents that need them) ──────────────────────
-
-    _json_repair_tool = JSONRepairTool()
-    _schema_diff_tool = SchemaDiffTool()
-    _mermaid_tool = MermaidGeneratorTool()
-
     # ── Agent factory methods ─────────────────────────────────────────────────
 
     @agent
@@ -81,6 +100,7 @@ class ProtoFlowCrew:
         logger.debug("[crew] Building intent_extractor agent.")
         return Agent(
             config=self.agents_config["intent_extractor"],  # type: ignore[index]
+            llm=LLM(model="groq/llama-3.3-70b-versatile", temperature=0.4),
             verbose=True,
         )
 
@@ -89,6 +109,7 @@ class ProtoFlowCrew:
         logger.debug("[crew] Building system_architect agent.")
         return Agent(
             config=self.agents_config["system_architect"],  # type: ignore[index]
+            llm=LLM(model="groq/llama-3.3-70b-versatile", temperature=0.3),
             verbose=True,
         )
 
@@ -97,6 +118,7 @@ class ProtoFlowCrew:
         logger.debug("[crew] Building db_schema_agent agent.")
         return Agent(
             config=self.agents_config["db_schema_agent"],  # type: ignore[index]
+            llm=LLM(model="groq/llama-3.3-70b-versatile", temperature=0.2),
             verbose=True,
         )
 
@@ -105,6 +127,7 @@ class ProtoFlowCrew:
         logger.debug("[crew] Building api_schema_agent agent.")
         return Agent(
             config=self.agents_config["api_schema_agent"],  # type: ignore[index]
+            llm=LLM(model="groq/llama-3.3-70b-versatile", temperature=0.2),
             verbose=True,
         )
 
@@ -113,6 +136,7 @@ class ProtoFlowCrew:
         logger.debug("[crew] Building ui_schema_agent agent.")
         return Agent(
             config=self.agents_config["ui_schema_agent"],  # type: ignore[index]
+            llm=LLM(model="groq/llama-3.3-70b-versatile", temperature=0.2),
             verbose=True,
         )
 
@@ -121,6 +145,7 @@ class ProtoFlowCrew:
         logger.debug("[crew] Building auth_agent agent.")
         return Agent(
             config=self.agents_config["auth_agent"],  # type: ignore[index]
+            llm=LLM(model="groq/llama-3.3-70b-versatile", temperature=0.2),
             verbose=True,
         )
 
@@ -129,6 +154,7 @@ class ProtoFlowCrew:
         logger.debug("[crew] Building validator_agent agent.")
         return Agent(
             config=self.agents_config["validator_agent"],  # type: ignore[index]
+            llm=LLM(model="groq/openai/gpt-oss-120b", temperature=0.1),
             verbose=True,
         )
 
@@ -137,6 +163,7 @@ class ProtoFlowCrew:
         logger.debug("[crew] Building repair_agent agent.")
         return Agent(
             config=self.agents_config["repair_agent"],  # type: ignore[index]
+            llm=LLM(model="groq/openai/gpt-oss-120b", temperature=0.2),
             verbose=True,
         )
 
@@ -145,6 +172,7 @@ class ProtoFlowCrew:
         logger.debug("[crew] Building runtime_validator agent.")
         return Agent(
             config=self.agents_config["runtime_validator"],  # type: ignore[index]
+            llm=LLM(model="groq/openai/gpt-oss-120b", temperature=0.1),
             verbose=True,
         )
 
@@ -153,6 +181,7 @@ class ProtoFlowCrew:
         logger.debug("[crew] Building progress_logger agent.")
         return Agent(
             config=self.agents_config["progress_logger"],  # type: ignore[index]
+            llm=LLM(model="groq/openai/gpt-oss-120b", temperature=0.3),
             verbose=True,
         )
 
@@ -381,7 +410,6 @@ async def _run_stage(
       - stage_update running event
       - timing
       - stage_update complete/failed event
-      - LLM cache stats logging
     """
     logger.info("[session:%s] Stage START: %s", session.session_id, stage_name)
     if getattr(session, 'tpm_limit_hit', False):
@@ -423,8 +451,8 @@ async def _run_stage(
         })
 
         logger.info(
-            "[session:%s] Stage DONE: %s latency=%dms cache_stats=%s",
-            session.session_id, stage_name, latency_ms, llm_cache.stats(),
+            "[session:%s] Stage DONE: %s latency=%dms",
+            session.session_id, stage_name, latency_ms,
         )
         return result
 
@@ -475,7 +503,6 @@ async def run_pipeline(session: PipelineSession) -> None:
     crew_instance = ProtoFlowCrew()
 
     # ── Read raw YAML once so we can look up agent names by task name ─────────
-    import yaml as _yaml
     _yaml_path = os.path.join(os.path.dirname(__file__), "config", "tasks.yaml")
     with open(_yaml_path, "r", encoding="utf-8") as _f:
         _raw_tasks_yaml: dict = _yaml.safe_load(_f)
@@ -530,20 +557,20 @@ async def run_pipeline(session: PipelineSession) -> None:
         if agent:
             task_obj.agent = agent
 
-        temp_crew = Crew(
-            agents=[agent] if agent else [],
-            tasks=[task_obj],
-            verbose=True,
-            memory=False,  # No OpenAI embedder; avoids ChromaDB CHROMA_OPENAI_API_KEY error
-        )
-
         # Run in a thread pool to avoid blocking the event loop
         loop = asyncio.get_running_loop()
         
-        import re
         max_retries = 5
         result = None
         for attempt in range(max_retries):
+            # Re-initialize temp_crew in case the agent's LLM was modified (e.g. fallback)
+            temp_crew = Crew(
+                agents=[agent] if agent else [],
+                tasks=[task_obj],
+                verbose=True,
+                memory=False,  # No OpenAI embedder; avoids ChromaDB CHROMA_OPENAI_API_KEY error
+            )
+            
             try:
                 result = await loop.run_in_executor(
                     None,
@@ -553,8 +580,31 @@ async def run_pipeline(session: PipelineSession) -> None:
             except Exception as e:
                 err_str = str(e)
                 if "RateLimitError" in type(e).__name__ or "rate_limit" in err_str.lower() or "rate limit reached" in err_str.lower():
-                    if "Request too large" in err_str:
-                        raise ValueError(f"Request size exceeds TPM limit: {err_str}")
+                    if "Request too large" in err_str and "Limit" in err_str and "Requested" in err_str:
+                        if agent and agent.llm and "gpt-oss-120b" in str(agent.llm.model):
+                            logger.warning(
+                                "[session:%s] Request size exceeds TPM limit for %s. Falling back to groq/llama-3.1-8b-instant.",
+                                session.session_id, agent.llm.model
+                            )
+                            agent.llm = LLM(model="groq/llama-3.1-8b-instant", temperature=0.1)
+                            continue # Try immediately with fallback model
+                        else:
+                            raise ValueError(f"Request size exceeds TPM limit even for fallback model: {err_str}")
+
+                    # If not a request size limit, it's a TPD limit or standard TPM timeout.
+                    # Rotate API key if we have multiple keys available.
+                    if len(GROQ_KEYS) > 1:
+                        new_key = random.choice(GROQ_KEYS)
+                        logger.warning(
+                            "[session:%s] Rate limit / TPD hit for %s. Rotating to another GROQ_API_KEY...",
+                            session.session_id, task_name
+                        )
+                        if agent and agent.llm:
+                            # Re-instantiate LLM with new API key
+                            temp = agent.llm.temperature if hasattr(agent.llm, 'temperature') else 0.1
+                            agent.llm = LLM(model=agent.llm.model, temperature=temp, api_key=new_key)
+                        continue # Try immediately with new key
+
                     if attempt < max_retries - 1:
                         # Parse "Please try again in 21.665s." or fallback to 30s
                         wait_time = 30.0
@@ -667,7 +717,7 @@ async def run_pipeline(session: PipelineSession) -> None:
     # ─────────────────────────────────────────────────────────────────────────
     logger.info("[session:%s] Starting parallel schema generation.", session.session_id)
 
-    arch_json = json.dumps(session.architecture or {}, separators=(',', ':'))
+    arch_json = _compact(session.architecture or {})
 
     async def _stage_db() -> dict:
         result = await _kickoff_task(
@@ -686,7 +736,7 @@ async def run_pipeline(session: PipelineSession) -> None:
             "task_generate_api_schema",
             {
                 "architecture_schema": arch_json,
-                "db_schema": json.dumps(session.db_schema or {}, separators=(',', ':')),
+                "db_schema": _compact(session.db_schema or {}),
                 "user_prompt": session.prompt,
             },
         )
@@ -702,7 +752,7 @@ async def run_pipeline(session: PipelineSession) -> None:
             "task_generate_ui_schema",
             {
                 "architecture_schema": arch_json,
-                "api_schema": json.dumps(session.api_schema or {}),
+                "api_schema": _compact(session.api_schema or {}),
                 "user_prompt": session.prompt,
             },
         )
@@ -718,7 +768,7 @@ async def run_pipeline(session: PipelineSession) -> None:
             "task_generate_auth_schema",
             {
                 "architecture_schema": arch_json,
-                "ui_schema": json.dumps(session.ui_schema or {}),
+                "ui_schema": _compact(session.ui_schema or {}),
                 "user_prompt": session.prompt,
             },
         )
@@ -756,12 +806,12 @@ async def run_pipeline(session: PipelineSession) -> None:
     # ─────────────────────────────────────────────────────────────────────────
     # STAGE 4 + 5 — Validation + Repair loop
     # ─────────────────────────────────────────────────────────────────────────
-    all_schemas_json = json.dumps({
+    all_schemas_json = _compact({
         "db_schema": session.db_schema,
         "api_schema": session.api_schema,
         "ui_schema": session.ui_schema,
         "auth_schema": session.auth_schema,
-    }, separators=(',', ':'))
+    })
 
     for attempt in range(1, MAX_REPAIR_LOOPS + 1):
         logger.info(
@@ -836,7 +886,7 @@ async def run_pipeline(session: PipelineSession) -> None:
             result = await _kickoff_task(
                 "task_repair_schemas",
                 {
-                    "validation_report": json.dumps(session.validation_report),
+                    "validation_report": _compact(session.validation_report),
                     "all_schemas": all_schemas_json,
                     "repair_attempt_number": attempt,
                     "user_prompt": session.prompt,
@@ -875,12 +925,12 @@ async def run_pipeline(session: PipelineSession) -> None:
             break
 
         # Rebuild for next validation pass
-        all_schemas_json = json.dumps({
+        all_schemas_json = _compact({
             "db_schema": session.db_schema,
             "api_schema": session.api_schema,
             "ui_schema": session.ui_schema,
             "auth_schema": session.auth_schema,
-        }, separators=(',', ':'))
+        })
 
     # ─────────────────────────────────────────────────────────────────────────
     # STAGE 6 — Runtime Validation
@@ -890,7 +940,7 @@ async def run_pipeline(session: PipelineSession) -> None:
             "task_validate_runtime",
             {
                 "all_schemas": all_schemas_json,
-                "validation_report": json.dumps(session.validation_report),
+                "validation_report": _compact(session.validation_report),
                 "user_prompt": session.prompt,
             },
         )
@@ -917,8 +967,8 @@ async def run_pipeline(session: PipelineSession) -> None:
             "task_log_progress",
             {
                 "all_schemas": all_schemas_json,
-                "validation_report": json.dumps(session.validation_report),
-                "runtime_report": json.dumps(session.runtime_report),
+                "validation_report": _compact(session.validation_report),
+                "runtime_report": _compact(session.runtime_report),
                 "stage_latencies": json.dumps(session.stage_latencies),
                 "repair_count": session.repair_count,
                 "hitl_count": session.hitl_count,
@@ -992,7 +1042,7 @@ async def run_pipeline(session: PipelineSession) -> None:
     await session.sse_queue.put(None)
 
     logger.info(
-        "[session:%s] Pipeline COMPLETE. total_ms=%d repairs=%d hitl=%d cache=%s",
+        "[session:%s] Pipeline COMPLETE. total_ms=%d repairs=%d hitl=%d",
         session.session_id, total_ms, session.repair_count,
-        session.hitl_count, llm_cache.stats(),
+        session.hitl_count,
     )

@@ -2,7 +2,7 @@ import { useState, useEffect } from "react";
 import { useNavigate, useSearchParams } from "react-router-dom";
 import {
   Cpu, Database, Globe, Layout, Shield, CheckCircle2,
-  Play, GitBranch, Download, Copy, RotateCcw, XCircle, Loader2,
+  Play, GitBranch, Download, Copy, RotateCcw, XCircle, Loader2, FileJson
 } from "lucide-react";
 import SchemaViewer from "../components/SchemaViewer";
 import MermaidDiagram from "../components/MermaidDiagram";
@@ -10,10 +10,11 @@ import AssumptionsPanel from "../components/AssumptionsPanel";
 import ConflictsPanel from "../components/ConflictsPanel";
 import { getResult } from "../api/client";
 
-type Tab = "overview" | "database" | "api" | "ui" | "auth" | "validation" | "runtime" | "diagrams";
+type Tab = "overview" | "combined" | "database" | "api" | "ui" | "auth" | "validation" | "runtime" | "diagrams";
 
 const TABS: { id: Tab; label: string; icon: React.ElementType }[] = [
   { id: "overview",   label: "Overview",   icon: Cpu },
+  { id: "combined",   label: "Combined",   icon: FileJson },
   { id: "database",   label: "Database",   icon: Database },
   { id: "api",        label: "API",        icon: Globe },
   { id: "ui",         label: "UI",         icon: Layout },
@@ -153,6 +154,12 @@ export default function ResultsPage() {
           </div>
         )}
 
+        {tab === "combined"   && <SchemaViewer data={{
+          db_schema: result?.db_schema,
+          api_schema: result?.api_schema,
+          ui_schema: result?.ui_schema,
+          auth_schema: result?.auth_schema
+        }} title="Combined Schema" />}
         {tab === "database"   && <SchemaViewer data={result?.db_schema}  title="Database Schema" />}
         {tab === "api"        && <SchemaViewer data={result?.api_schema}  title="API Schema" />}
         {tab === "ui"         && <SchemaViewer data={result?.ui_schema}   title="UI Schema" />}

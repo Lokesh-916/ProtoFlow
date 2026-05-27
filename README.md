@@ -123,10 +123,13 @@ If validation fails, the compiler does not restart. Instead, the `Repair Agent` 
 ### 2. Event-Driven Asynchronous Server-Sent Events (SSE)
 FastAPI publishes state updates, token usage metrics, agent logs, and HITL flags over a single SSE channel (`/stream/{session_id}`). The React client hooks directly into this stream to update the compiler graph in real-time.
 
-### 3. LRU Prompt Cache & Rate Throttle
-To work effectively within Groq free-tier constraints (1,000 RPM, 300,000 TPM), ProtoFlow uses a memory-based LRU response cache (`LLMCache`) to bypass duplicate prompt calls and implements a configurable retry parser with backoff.
+### 3. LRU Prompt Cache & Intelligent Throttle
+To work effectively within Groq free-tier constraints (1,000 RPM, 300,000 TPM), ProtoFlow uses a memory-based LRU response cache to bypass duplicate prompt calls and implements a configurable retry parser with backoff.
 
-### 4. Built-in Evaluation & Benchmarking Harness
+### 4. Zero-Downtime API Key Rotation & Model Fallback
+When deploying large workloads, a single API key is often exhausted by Tokens-Per-Day (TPD) limits. ProtoFlow supports hot-loading multiple API keys from `.env` and automatically load-balances and rotates keys on rate-limit exhaustion. It also employs a mixed-model architecture, seamlessly falling back from 70B to 8B models (e.g. `gpt-oss-120b` or `llama-3.1-8b`) for context-heavy aggregation tasks to evade Tokens-Per-Minute (TPM) ceilings.
+
+### 5. Built-in Evaluation & Benchmarking Harness
 Contains a suite of **20 integration tests** covering:
 * **10 Real-world Prompts:** E-commerce, multi-tenant SaaS, healthcare portals, etc.
 * **10 Edge Cases:** Conflicting auth scopes, cyclic DB schemas, empty intents, and ambiguous instructions.
@@ -184,9 +187,11 @@ uv sync
 ```
 
 ### 2. Establish Environment Keys
-Create a `.env` file in the root directory:
+Create a `.env` file in the root directory. You can add multiple Groq keys to enable automatic load-balancing and bypass TPD limits!
 ```env
-GROQ_API_KEY=your_groq_key_here
+GROQ_API_KEY=your_primary_groq_key_here
+GROQ_API_KEY_2=your_secondary_groq_key_here
+GROQ_API_KEY_3=your_tertiary_groq_key_here
 MAX_REPAIR_LOOPS=3
 HITL_TIMEOUT_SECONDS=300
 ```

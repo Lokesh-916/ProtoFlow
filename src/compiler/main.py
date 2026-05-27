@@ -36,6 +36,8 @@ from fastapi.responses import PlainTextResponse
 from pydantic import BaseModel
 from sse_starlette.sse import EventSourceResponse
 
+from compiler.schemas.contracts import ClarifyRequest
+
 # ── Load .env before anything else ───────────────────────────────────────────
 load_dotenv()
 
@@ -107,10 +109,10 @@ _MODEL_MAP = {
     "api_schema_agent":  "groq/llama-3.3-70b-versatile",
     "ui_schema_agent":   "groq/llama-3.3-70b-versatile",
     "auth_agent":        "groq/llama-3.3-70b-versatile",
-    "validator_agent":   "groq/llama-3.3-70b-versatile",
-    "repair_agent":      "groq/llama-3.3-70b-versatile",
-    "runtime_validator": "groq/llama-3.3-70b-versatile",
-    "progress_logger":   "groq/llama-3.3-70b-versatile",
+    "validator_agent":   "groq/openai/gpt-oss-120b",
+    "repair_agent":      "groq/openai/gpt-oss-120b",
+    "runtime_validator": "groq/openai/gpt-oss-120b",
+    "progress_logger":   "groq/openai/gpt-oss-120b",
 }
 logger.info("[startup] Agent model map:")
 for agent_name, model in _MODEL_MAP.items():
@@ -118,7 +120,6 @@ for agent_name, model in _MODEL_MAP.items():
 
 # ── Session store ─────────────────────────────────────────────────────────────
 from compiler.crew import PipelineSession, run_pipeline
-from compiler.tools.llm_cache import llm_cache
 
 _session_store: dict[str, PipelineSession] = {}
 _session_lock = asyncio.Lock()
@@ -144,7 +145,6 @@ async def _cleanup_expired_sessions() -> None:
             ]
             for sid in expired:
                 session = _session_store.pop(sid)
-                llm_cache.clear()  # clear cache on session cleanup
                 logger.info("[main] Expired session cleaned up: %s", sid)
         if expired:
             logger.info("[main] Cleaned up %d expired sessions.", len(expired))
@@ -201,11 +201,6 @@ class GenerateRequest(BaseModel):
 
 class GenerateResponse(BaseModel):
     session_id: str
-
-class ClarifyRequest(BaseModel):
-    session_id: str
-    answers: list[str]
-    chosen_option: Optional[str] = None
 
 class ClarifyResponse(BaseModel):
     status: str
@@ -371,7 +366,6 @@ async def result(session_id: str):
             "repair_count": session.repair_count,
             "hitl_count": session.hitl_count,
             "stage_latencies": session.stage_latencies,
-            "cache_stats": llm_cache.stats(),
         },
     }
 

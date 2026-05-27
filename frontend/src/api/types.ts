@@ -78,10 +78,10 @@ export const STAGE_META: Record<string, { label: string; model: string }> = {
   api_schema:           { label: "API Schema",           model: "llama-3.3-70b" },
   ui_schema:            { label: "UI Schema",            model: "llama-3.3-70b" },
   auth_schema:          { label: "Auth Schema",          model: "llama-3.3-70b" },
-  validation:           { label: "Validation",           model: "llama-3.3-70b" },
-  repair:               { label: "Repair",               model: "llama-3.3-70b" },
-  runtime_validation:   { label: "Runtime Validation",   model: "llama-3.3-70b" },
-  logging:              { label: "Logging & Diagrams",   model: "llama-3.3-70b" },
+  validation:           { label: "Validation",           model: "gpt-oss-120b" },
+  repair:               { label: "Repair",               model: "gpt-oss-120b" },
+  runtime_validation:   { label: "Runtime Validation",   model: "gpt-oss-120b" },
+  logging:              { label: "Logging & Diagrams",   model: "gpt-oss-120b" },
 };
 
 export const STAGE_ORDER = Object.keys(STAGE_META);
