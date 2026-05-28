@@ -173,7 +173,7 @@ class ProtoFlowCrew:
         logger.debug("[crew] Building validator_agent agent.")
         return Agent(
             config=self.agents_config["validator_agent"],  # type: ignore[index]
-            llm=LLM(model="groq/openai/gpt-oss-120b", temperature=0.1),
+            llm=LLM(model="groq/llama-3.3-70b-versatile", temperature=0.1),
             verbose=True,
             cache=False,
         )
@@ -183,7 +183,7 @@ class ProtoFlowCrew:
         logger.debug("[crew] Building repair_agent agent.")
         return Agent(
             config=self.agents_config["repair_agent"],  # type: ignore[index]
-            llm=LLM(model="groq/openai/gpt-oss-120b", temperature=0.2),
+            llm=LLM(model="groq/llama-3.3-70b-versatile", temperature=0.2),
             verbose=True,
             cache=False,
         )
@@ -193,7 +193,7 @@ class ProtoFlowCrew:
         logger.debug("[crew] Building runtime_validator agent.")
         return Agent(
             config=self.agents_config["runtime_validator"],  # type: ignore[index]
-            llm=LLM(model="groq/openai/gpt-oss-120b", temperature=0.1),
+            llm=LLM(model="groq/llama-3.3-70b-versatile", temperature=0.1),
             verbose=True,
             cache=False,
         )
@@ -203,7 +203,7 @@ class ProtoFlowCrew:
         logger.debug("[crew] Building progress_logger agent.")
         return Agent(
             config=self.agents_config["progress_logger"],  # type: ignore[index]
-            llm=LLM(model="groq/openai/gpt-oss-120b", temperature=0.3),
+            llm=LLM(model="groq/llama-3.3-70b-versatile", temperature=0.3),
             verbose=True,
             cache=False,
         )

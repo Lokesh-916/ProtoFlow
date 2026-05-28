@@ -109,10 +109,10 @@ _MODEL_MAP = {
     "api_schema_agent":  "groq/llama-3.3-70b-versatile",
     "ui_schema_agent":   "groq/llama-3.3-70b-versatile",
     "auth_agent":        "groq/llama-3.3-70b-versatile",
-    "validator_agent":   "groq/openai/gpt-oss-120b",
-    "repair_agent":      "groq/openai/gpt-oss-120b",
-    "runtime_validator": "groq/openai/gpt-oss-120b",
-    "progress_logger":   "groq/openai/gpt-oss-120b",
+    "validator_agent":   "groq/llama-3.3-70b-versatile",
+    "repair_agent":      "groq/llama-3.3-70b-versatile",
+    "runtime_validator": "groq/llama-3.3-70b-versatile",
+    "progress_logger":   "groq/llama-3.3-70b-versatile",
 }
 logger.info("[startup] Agent model map:")
 for agent_name, model in _MODEL_MAP.items():
