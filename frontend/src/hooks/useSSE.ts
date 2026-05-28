@@ -56,6 +56,7 @@ export function useSSE({ sessionId, onEvent, onError }: UseSSEOptions) {
       const eventTypes = [
         "stage_update", "hitl_required", "log_update",
         "pipeline_complete", "pipeline_failed", "ping",
+        "modification_queued", "modification_applied",
       ];
       eventTypes.forEach((type) => es.addEventListener(type, handleMessage as EventListener));
       es.onmessage = handleMessage; // fallback for unnamed events

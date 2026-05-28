@@ -37,6 +37,25 @@ export async function submitClarify(
   }
 }
 
+export async function submitModification(
+  session_id: string,
+  modification: string
+): Promise<{ status: string; message: string }> {
+  console.log("[api] POST /modify session=%s modification_length=%d", session_id, modification.length);
+  const res = await fetch(`${BASE}/modify`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ session_id, modification }),
+  });
+  if (!res.ok) {
+    const err = await res.text();
+    console.error("[api] /modify failed:", err);
+    throw new Error(`Failed to submit modification: ${err}`);
+  }
+  return res.json();
+}
+
+
 export async function getResult(session_id: string): Promise<Record<string, unknown>> {
   console.log("[api] GET /result/%s", session_id);
   const res = await fetch(`${BASE}/result/${session_id}`);

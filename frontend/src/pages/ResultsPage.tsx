@@ -2,7 +2,7 @@ import { useState, useEffect } from "react";
 import { useNavigate, useSearchParams } from "react-router-dom";
 import {
   Cpu, Database, Globe, Layout, Shield, CheckCircle2,
-  Play, GitBranch, Download, Copy, RotateCcw, XCircle, Loader2, FileJson
+  Play, GitBranch, Download, Copy, RotateCcw, XCircle, Loader2, FileJson, Pencil
 } from "lucide-react";
 import SchemaViewer from "../components/SchemaViewer";
 import MermaidDiagram from "../components/MermaidDiagram";
@@ -10,18 +10,19 @@ import AssumptionsPanel from "../components/AssumptionsPanel";
 import ConflictsPanel from "../components/ConflictsPanel";
 import { getResult } from "../api/client";
 
-type Tab = "overview" | "combined" | "database" | "api" | "ui" | "auth" | "validation" | "runtime" | "diagrams";
+type Tab = "overview" | "combined" | "database" | "api" | "ui" | "auth" | "validation" | "runtime" | "diagrams" | "modifications";
 
 const TABS: { id: Tab; label: string; icon: React.ElementType }[] = [
-  { id: "overview",   label: "Overview",   icon: Cpu },
-  { id: "combined",   label: "Combined",   icon: FileJson },
-  { id: "database",   label: "Database",   icon: Database },
-  { id: "api",        label: "API",        icon: Globe },
-  { id: "ui",         label: "UI",         icon: Layout },
-  { id: "auth",       label: "Auth",       icon: Shield },
-  { id: "validation", label: "Validation", icon: CheckCircle2 },
-  { id: "runtime",    label: "Runtime",    icon: Play },
-  { id: "diagrams",   label: "Diagrams",   icon: GitBranch },
+  { id: "overview",       label: "Overview",      icon: Cpu },
+  { id: "combined",       label: "Combined",      icon: FileJson },
+  { id: "database",       label: "Database",      icon: Database },
+  { id: "api",            label: "API",           icon: Globe },
+  { id: "ui",             label: "UI",            icon: Layout },
+  { id: "auth",           label: "Auth",          icon: Shield },
+  { id: "validation",     label: "Validation",    icon: CheckCircle2 },
+  { id: "runtime",        label: "Runtime",       icon: Play },
+  { id: "diagrams",       label: "Diagrams",      icon: GitBranch },
+  { id: "modifications",  label: "Modifications", icon: Pencil },
 ];
 
 export default function ResultsPage() {
@@ -206,6 +207,47 @@ export default function ResultsPage() {
             <MermaidDiagram title="Pipeline Flow"  source={mermaid.pipeline_flow ?? ""} />
             <MermaidDiagram title="ER Diagram"     source={mermaid.er_diagram ?? ""} />
             <MermaidDiagram title="API Sequence"   source={mermaid.api_sequence ?? ""} />
+          </div>
+        )}
+
+        {tab === "modifications" && (
+          <div className="max-w-3xl mx-auto space-y-4">
+            {/* Original prompt */}
+            <div className="rounded-2xl border border-canvas-800 bg-canvas-900/60 p-5">
+              <h3 className="text-xs font-semibold text-canvas-500 uppercase tracking-widest mb-3">Original Prompt</h3>
+              <p className="text-sm text-canvas-300 whitespace-pre-wrap">{(result?.original_prompt as string) ?? (result?.prompt as string)}</p>
+            </div>
+
+            {/* Modification history */}
+            {Array.isArray(result?.modification_history) && (result.modification_history as unknown[]).length > 0 ? (
+              <div className="rounded-2xl border border-canvas-800 bg-canvas-900/60 p-5">
+                <h3 className="text-xs font-semibold text-canvas-500 uppercase tracking-widest mb-3">Mid-Run Modifications Applied</h3>
+                <div className="space-y-3">
+                  {(result.modification_history as Array<{modification: string; applied_at_stage: string}>).map((mod, i) => (
+                    <div key={i} className="rounded-xl border border-sage-600/20 bg-sage-600/5 p-4">
+                      <div className="flex items-center gap-2 mb-2">
+                        <CheckCircle2 className="w-3.5 h-3.5 text-sage-400 flex-shrink-0" />
+                        <span className="text-xs text-sage-400 font-medium">Applied at stage: <code className="font-mono">{mod.applied_at_stage}</code></span>
+                      </div>
+                      <p className="text-sm text-canvas-300">{mod.modification}</p>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            ) : (
+              <div className="rounded-2xl border border-canvas-800 bg-canvas-900/40 p-8 text-center">
+                <Pencil className="w-6 h-6 text-canvas-700 mx-auto mb-2" />
+                <p className="text-sm text-canvas-600">No midway modifications were applied in this session.</p>
+              </div>
+            )}
+
+            {/* Final effective prompt */}
+            {result?.modification_history && Array.isArray(result.modification_history) && (result.modification_history as unknown[]).length > 0 && (
+              <div className="rounded-2xl border border-canvas-800 bg-canvas-900/60 p-5">
+                <h3 className="text-xs font-semibold text-canvas-500 uppercase tracking-widest mb-3">Final Effective Prompt</h3>
+                <p className="text-sm text-canvas-300 whitespace-pre-wrap font-mono text-xs leading-relaxed">{result?.prompt as string}</p>
+              </div>
+            )}
           </div>
         )}
       </div>

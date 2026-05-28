@@ -63,12 +63,29 @@ export interface PipelineFailedEvent {
   error: string;
 }
 
+export interface ModificationQueuedEvent {
+  event: "modification_queued";
+  session_id: string;
+  modification: string;
+  applied_at_stage: string;
+}
+
+export interface ModificationAppliedEvent {
+  event: "modification_applied";
+  session_id: string;
+  modification: string;
+  applied_at_stage: string;
+  new_prompt: string;
+}
+
 export type SSEEvent =
   | StageUpdateEvent
   | HITLRequiredEvent
   | LogUpdateEvent
   | PipelineCompleteEvent
-  | PipelineFailedEvent;
+  | PipelineFailedEvent
+  | ModificationQueuedEvent
+  | ModificationAppliedEvent;
 
 // Stage display metadata
 export const STAGE_META: Record<string, { label: string; model: string }> = {
