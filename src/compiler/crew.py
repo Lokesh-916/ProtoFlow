@@ -311,6 +311,7 @@ class PipelineSession:
     def __init__(self, session_id: str, prompt: str, skip_hitl: bool = False) -> None:
         self.session_id = session_id
         self.prompt = prompt
+        self.original_prompt = prompt  # preserves the initial prompt
         self.skip_hitl = skip_hitl
         self.started_at = time.monotonic()
 
@@ -318,6 +319,10 @@ class PipelineSession:
         self.hitl_event: asyncio.Event = asyncio.Event()
         self.hitl_answers: list[str] = []
         self.hitl_chosen_option: Optional[str] = None
+
+        # Midway modification support
+        self.pending_modification: Optional[str] = None   # set by POST /modify
+        self.modification_history: list[dict] = []        # record of all modifications
 
         # Accumulated outputs
         self.intent: Optional[dict] = None
@@ -358,6 +363,14 @@ class PipelineSession:
         self.hitl_chosen_option = chosen_option
         self.hitl_count += 1
         self.hitl_event.set()
+
+    def queue_modification(self, modification: str) -> None:
+        """Called by POST /modify to enqueue a midway prompt modification."""
+        logger.info(
+            "[session:%s] Modification queued: %r",
+            self.session_id, modification[:100],
+        )
+        self.pending_modification = modification
 
 
 # ── Async pipeline runner ─────────────────────────────────────────────────────
@@ -420,6 +433,43 @@ async def _wait_for_hitl(
         )
 
     return session.hitl_answers
+
+
+async def _apply_pending_modification(session: PipelineSession, current_stage: str) -> bool:
+    """
+    Check for a pending midway modification. If found, apply it to session.prompt
+    and emit modification_applied SSE event. Returns True if a modification was applied.
+
+    This is called at stage boundaries (between pipeline stages) so the next stage
+    picks up the updated requirements. The pipeline is NOT restarted; only future
+    stages benefit from the change. A disclaimer is already shown in the UI.
+    """
+    mod = session.pending_modification
+    if not mod:
+        return False
+
+    session.pending_modification = None
+    new_prompt = f"{session.prompt}\n\n[MID-RUN MODIFICATION at {current_stage}]: {mod}"
+    session.prompt = new_prompt
+
+    record = {
+        "modification": mod,
+        "applied_at_stage": current_stage,
+        "new_prompt_length": len(new_prompt),
+    }
+    session.modification_history.append(record)
+
+    logger.info(
+        "[session:%s] Modification applied at stage=%s: %r",
+        session.session_id, current_stage, mod[:100],
+    )
+
+    await _emit(session, "modification_applied", {
+        "modification": mod,
+        "applied_at_stage": current_stage,
+        "new_prompt": new_prompt,
+    })
+    return True
 
 
 async def _run_stage(
@@ -758,6 +808,9 @@ async def run_pipeline(session: PipelineSession) -> None:
         "groq/llama-3.3-70b-versatile", _stage_architecture()
     )
 
+    # ── Modification checkpoint (before schema generation) ────────────────────
+    await _apply_pending_modification(session, "before_schema_generation")
+
     # ─────────────────────────────────────────────────────────────────────────
     # STAGE 3 — Parallel fan-out: DB + API + UI + Auth
     # ─────────────────────────────────────────────────────────────────────────
@@ -845,9 +898,16 @@ async def run_pipeline(session: PipelineSession) -> None:
         return result
 
     db_result = await _run_schema_stage("db_schema", _stage_db, "groq/llama-3.3-70b-versatile")
+    # ── Modification checkpoint (between db and api generation) ──────────────
+    await _apply_pending_modification(session, "before_api_schema")
     api_result = await _run_schema_stage("api_schema", _stage_api, "groq/llama-3.3-70b-versatile")
+    # ── Modification checkpoint (between api and ui generation) ──────────────
+    await _apply_pending_modification(session, "before_ui_schema")
     ui_result = await _run_schema_stage("ui_schema", _stage_ui, "groq/llama-3.3-70b-versatile")
     auth_result = await _run_schema_stage("auth_schema", _stage_auth, "groq/llama-3.3-70b-versatile")
+
+    # ── Modification checkpoint (before validation) ───────────────────────────
+    await _apply_pending_modification(session, "before_validation")
 
     # ─────────────────────────────────────────────────────────────────────────
     # STAGE 4 + 5 — Validation + Repair loop

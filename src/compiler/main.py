@@ -36,7 +36,7 @@ from fastapi.responses import PlainTextResponse
 from pydantic import BaseModel
 from sse_starlette.sse import EventSourceResponse
 
-from compiler.schemas.contracts import ClarifyRequest
+from compiler.schemas.contracts import ClarifyRequest, ModifyRequest
 
 # ── Load .env before anything else ───────────────────────────────────────────
 load_dotenv()
@@ -328,6 +328,54 @@ async def clarify(req: ClarifyRequest):
     return ClarifyResponse(status="resumed")
 
 
+class ModifyResponse(BaseModel):
+    status: str
+    message: str
+
+
+@app.post("/modify", response_model=ModifyResponse)
+async def modify(req: ModifyRequest):
+    """
+    Accept a midway modification to the running pipeline.
+
+    The modification is stored on the session and picked up at the next stage
+    boundary (before_schema_generation, before_api_schema, before_ui_schema,
+    before_validation). The pipeline is NOT restarted — only future stages
+    that have not yet run will incorporate the change.
+
+    Returns immediately so the UI is not blocked.
+    """
+    session = await _get_session(req.session_id)
+
+    if not req.modification or not req.modification.strip():
+        raise HTTPException(status_code=422, detail="modification must not be empty.")
+
+    if session.runtime_report is not None:
+        # Pipeline already complete — no stages left to modify
+        raise HTTPException(
+            status_code=409,
+            detail="Pipeline has already completed. Start a new session to apply changes.",
+        )
+
+    session.queue_modification(req.modification.strip())
+    logger.info(
+        "[modify] Modification queued for session %s: %r",
+        req.session_id, req.modification[:80],
+    )
+
+    # Emit SSE immediately so the client sees acknowledgement
+    import asyncio as _asyncio
+    _asyncio.create_task(_emit(session, "modification_queued", {
+        "modification": req.modification.strip(),
+        "applied_at_stage": "pending",
+    }))
+
+    return ModifyResponse(
+        status="queued",
+        message="Modification queued. It will be applied at the next stage boundary.",
+    )
+
+
 @app.get("/result/{session_id}")
 async def result(session_id: str):
     """Return the complete FinalOutput JSON for a completed session."""
@@ -346,6 +394,8 @@ async def result(session_id: str):
     return {
         "session_id": session_id,
         "prompt": session.prompt,
+        "original_prompt": session.original_prompt,
+        "modification_history": session.modification_history,
         "intent": session.intent,
         "architecture": session.architecture,
         "db_schema": session.db_schema,
@@ -368,6 +418,7 @@ async def result(session_id: str):
             "stage_latencies": session.stage_latencies,
         },
     }
+
 
 
 @app.get("/logs/{session_id}", response_class=PlainTextResponse)

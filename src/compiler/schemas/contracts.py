@@ -704,3 +704,32 @@ class ClarifyRequest(BaseModel):
         default=None,
         description="Chosen option if multiple choice was presented.",
     )
+
+
+class ModifyRequest(BaseModel):
+    """Body for POST /modify — midway prompt modification."""
+
+    session_id: str = Field(description="Session identifier.")
+    modification: str = Field(description="The change or addition the user wants to apply.")
+
+
+class ModificationQueuedEvent(BaseModel):
+    """SSE event emitted immediately when a modification is received."""
+
+    event: str = Field(default="modification_queued")
+    session_id: str = Field(description="Session identifier.")
+    modification: str = Field(description="The modification text.")
+    applied_at_stage: str = Field(
+        default="pending",
+        description="The stage at which this will be/was applied.",
+    )
+
+
+class ModificationAppliedEvent(BaseModel):
+    """SSE event emitted when the pipeline picks up and applies the modification."""
+
+    event: str = Field(default="modification_applied")
+    session_id: str = Field(description="Session identifier.")
+    modification: str = Field(description="The applied modification text.")
+    applied_at_stage: str = Field(description="The pipeline stage where it was applied.")
+    new_prompt: str = Field(description="The updated prompt after applying modification.")
