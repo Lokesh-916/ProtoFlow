@@ -90,6 +90,41 @@ def _compact(data: Optional[dict]) -> str:
     return json.dumps(_rec(data), separators=(',', ':'))
 
 
+def _outline(data: Optional[dict]) -> str:
+    """Ultra-compact schema outline for validation/repair/runtime inputs.
+    Only retains structural keys (names, types, paths, methods, roles)
+    and drops all detail arrays deeper than 1 level. This keeps token
+    count low enough to fit in a single Groq request even for large apps.
+    """
+    if not data:
+        return "{}"
+    # Top-level keys to keep per schema type, with how many items to show
+    def _summarise(obj: Any, depth: int = 0) -> Any:
+        if depth >= 2:
+            # At depth 2+, only return primitive values or list length
+            if isinstance(obj, list):
+                return f"[{len(obj)} items]"
+            if isinstance(obj, dict):
+                return f"{{{len(obj)} keys}}"
+            return obj
+        if isinstance(obj, dict):
+            KEEP = frozenset({
+                "name", "table", "path", "method", "type", "role",
+                "role_required", "auth_required", "required_role",
+                "tables", "endpoints", "pages", "roles",
+                "permissions_matrix", "auth_strategy", "entities",
+                "relations", "primary_key", "nullable", "data_type",
+                "references_table", "from_entity", "to_entity",
+                "submit_endpoint", "api_endpoint", "cardinality",
+                "is_valid", "errors", "warnings", "conflicts",
+            })
+            return {k: _summarise(v, depth + 1) for k, v in obj.items() if k in KEEP}
+        if isinstance(obj, list):
+            return [_summarise(i, depth + 1) for i in obj]
+        return obj
+    return json.dumps(_summarise(data), separators=(',', ':'))
+
+
 # ── CrewBase class ────────────────────────────────────────────────────────────
 
 @CrewBase
@@ -532,12 +567,20 @@ async def _run_stage(
     except Exception as exc:
         latency_ms = int((time.monotonic() - t0) * 1000)
         session.stage_latencies[stage_name] = latency_ms
-        if "Request size exceeds TPM limit" in str(exc) or "TPM" in str(exc):
-            logger.error("[session:%s] TPM limit hit in stage %s. Bypassing.", session.session_id, stage_name)
-            setattr(session, 'tpm_limit_hit', True)
+        is_size_limit = "Request size exceeds TPM limit" in str(exc) or (
+            "Request too large" in str(exc) and "Limit" in str(exc)
+        )
+        if is_size_limit:
+            # Log but DO NOT set tpm_limit_hit — let each stage fail independently
+            # so the pipeline continues to completion with whatever it can produce.
+            logger.error(
+                "[session:%s] Request size limit hit in stage %s — stage skipped, pipeline continues.",
+                session.session_id, stage_name,
+            )
             await _emit(session, "stage_update", {
-                "stage": stage_name, "status": "failed", "model": model, "latency_ms": latency_ms,
-                "output_summary": f"Bypassed: {exc}"
+                "stage": stage_name, "status": "failed", "model": model,
+                "latency_ms": latency_ms,
+                "output_summary": f"Skipped (request too large for model). {exc}"
             })
             return {}
         logger.error(
@@ -655,15 +698,17 @@ async def run_pipeline(session: PipelineSession) -> None:
                 err_str = str(e)
                 if "RateLimitError" in type(e).__name__ or "rate_limit" in err_str.lower() or "rate limit reached" in err_str.lower():
                     if "Request too large" in err_str and "Limit" in err_str and "Requested" in err_str:
-                        if agent and agent.llm and "gpt-oss-120b" in str(agent.llm.model):
+                        # Request is too large for the current model — fall back to the
+                        # smallest available Groq model regardless of which model we started with.
+                        if agent and agent.llm and "llama-3.1-8b-instant" not in str(agent.llm.model):
                             logger.warning(
-                                "[session:%s] Request size exceeds TPM limit for %s. Falling back to groq/llama-3.1-8b-instant.",
+                                "[session:%s] Request size exceeds model limit for %s. Falling back to groq/llama-3.1-8b-instant.",
                                 session.session_id, agent.llm.model
                             )
                             agent.llm = LLM(model="groq/llama-3.1-8b-instant", temperature=0.1)
-                            continue # Try immediately with fallback model
+                            continue  # Try immediately with fallback model
                         else:
-                            raise ValueError(f"Request size exceeds TPM limit even for fallback model: {err_str}")
+                            raise ValueError(f"Request size exceeds limit even for fallback model: {err_str}")
 
                     # If not a request size limit, it's a TPD limit or standard TPM timeout.
                     # Rotate API key if we have multiple keys available.
@@ -913,7 +958,10 @@ async def run_pipeline(session: PipelineSession) -> None:
     # STAGE 4 + 5 — Validation + Repair loop
     # ─────────────────────────────────────────────────────────────────────────
     for attempt in range(1, MAX_REPAIR_LOOPS + 1):
-        all_schemas_json = _compact({
+        # Use _outline() (ultra-compact) rather than _compact() for all_schemas.
+        # Validation only needs structural info (table names, endpoint paths, roles) —
+        # not full column/field details — to detect cross-layer mismatches.
+        all_schemas_json = _outline({
             "db_schema": session.db_schema,
             "api_schema": session.api_schema,
             "ui_schema": session.ui_schema,
@@ -1026,11 +1074,9 @@ async def run_pipeline(session: PipelineSession) -> None:
             session, "repair",
             "groq/llama-3.3-70b-versatile", _stage_repair()
         )
-        if getattr(session, 'tpm_limit_hit', False):
-            break
 
-        # Rebuild for next validation pass
-        all_schemas_json = _compact({
+        # Rebuild outline for next validation pass
+        all_schemas_json = _outline({
             "db_schema": session.db_schema,
             "api_schema": session.api_schema,
             "ui_schema": session.ui_schema,
@@ -1044,7 +1090,12 @@ async def run_pipeline(session: PipelineSession) -> None:
         result = await _kickoff_task(
             "task_validate_runtime",
             {
-                "all_schemas": all_schemas_json,
+                "all_schemas": _outline({
+                    "db_schema": session.db_schema,
+                    "api_schema": session.api_schema,
+                    "ui_schema": session.ui_schema,
+                    "auth_schema": session.auth_schema,
+                }),
                 "validation_report": _compact(session.validation_report),
                 "user_prompt": session.prompt,
             },
@@ -1071,14 +1122,14 @@ async def run_pipeline(session: PipelineSession) -> None:
         result = await _kickoff_task(
             "task_log_progress",
             {
-                "all_schemas": all_schemas_json,
-                "validation_report": _compact(session.validation_report),
-                "runtime_report": _compact(session.runtime_report),
+                # Logging only needs stage metrics + minimal schema outline for Mermaid
                 "stage_latencies": json.dumps(session.stage_latencies),
                 "repair_count": session.repair_count,
                 "hitl_count": session.hitl_count,
-                "user_prompt": session.prompt,
+                "user_prompt": session.prompt[:200],  # truncate long modified prompts
                 "session_id": session.session_id,
+                "db_outline": _outline(session.db_schema),
+                "api_outline": _outline(session.api_schema),
             },
         )
         session.log_output = result

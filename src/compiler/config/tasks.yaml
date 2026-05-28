@@ -269,9 +269,14 @@ task_log_progress:
     
     User Prompt: {user_prompt}
     Session ID: {session_id}
+    Stage Latencies: {stage_latencies}
+    Repairs: {repair_count}  HITL rounds: {hitl_count}
+
+    DB Outline (table names + relations): {db_outline}
+    API Outline (endpoint paths + methods): {api_outline}
 
     Create log entries with: stage name, latency, assumptions, conflicts, repair triggers.
-    Generate 3 valid Mermaid diagrams: 1) Pipeline flowchart showing repair/HITL triggers (mermaid_pipeline) 2) ER diagram from DB schema (mermaid_er) 3) Sequence diagram for primary entity API flow (mermaid_sequence).
+    Generate 3 valid Mermaid diagrams: 1) Pipeline flowchart showing repair/HITL triggers (mermaid_pipeline) 2) ER diagram from DB outline (mermaid_er) 3) Sequence diagram for primary entity API flow (mermaid_sequence).
     For all Mermaid diagrams, apply a visually pleasing rust/orange theme matching the UI (e.g. using `%%{init: {'theme': 'base', 'themeVariables': { 'primaryColor': '#2a2520', 'primaryTextColor': '#f7f6f3', 'primaryBorderColor': '#e86d2a', 'lineColor': '#ef8a52'}}}%%`).
     Respond only with valid JSON.
   expected_output: >
@@ -280,3 +285,4 @@ task_log_progress:
   context:
     - task_validate_runtime
   async_execution: true
+
