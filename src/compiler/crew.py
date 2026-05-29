@@ -125,7 +125,50 @@ def _outline(data: Optional[dict]) -> str:
     return json.dumps(_summarise(data), separators=(',', ':'))
 
 
+
 # ── CrewBase class ────────────────────────────────────────────────────────────
+
+
+def _sanitize_mermaid(source: str, diagram_hint: str = "") -> str:
+    """Fix the two most common LLM Mermaid syntax errors so diagrams render.
+
+    1. -->|label|>  (extra trailing >) → -->|label|
+       The LLM sometimes appends a '>' after the closing '|' of an edge label,
+       which is invalid in Mermaid's flowchart grammar.
+
+    2. 'style X fill:...' inside sequenceDiagram or erDiagram.
+       Those diagram types don't support the 'style' keyword — only flowcharts
+       do. Strip any line that starts with 'style ' in those diagram types.
+    """
+    if not source:
+        return source
+
+    # Normalise escaped newlines (LLM sometimes returns \\n literals)
+    src = source.replace("\\n", "\n")
+
+    # Fix 1: -->|label|>  →  -->|label|
+    import re
+    src = re.sub(r'(\|[^|]*\|)>', r'\1', src)
+
+    # Fix 2: strip 'style ...' lines for diagram types that don't support it
+    needs_strip = False
+    first_line = src.strip().split("\n")[0] if src.strip() else ""
+    if "sequenceDiagram" in src or diagram_hint == "sequence":
+        needs_strip = True
+    if "erDiagram" in src or diagram_hint == "er":
+        needs_strip = True
+
+    if needs_strip:
+        cleaned = []
+        for line in src.split("\n"):
+            stripped = line.strip()
+            if stripped.startswith("style ") and ("fill:" in stripped or "stroke:" in stripped):
+                continue  # drop invalid style line
+            cleaned.append(line)
+        src = "\n".join(cleaned)
+
+    return src
+
 
 @CrewBase
 class ProtoFlowCrew:
@@ -1053,22 +1096,37 @@ async def run_pipeline(session: PipelineSession) -> None:
                 len(result.get("repairs", [])),
                 len(result.get("unresolved_errors", [])),
             )
-            # Merge updated schemas back into session
+            # Merge updated schemas back into session.
+            # Guard against wrong-shaped updated_schemas from the LLM, e.g.:
+            #   {"schema": {...}}  instead of  {"db_schema": {...}, "api_schema": {...}}
             updated = result.get("updated_schemas", {})
-            if "db_schema" in updated:
-                session.db_schema = updated["db_schema"]
-                logger.debug("[session:%s] db_schema updated by repair.", session.session_id)
-            if "api_schema" in updated:
-                session.api_schema = updated["api_schema"]
-                logger.debug("[session:%s] api_schema updated by repair.", session.session_id)
-            if "ui_schema" in updated:
-                session.ui_schema = updated["ui_schema"]
-                logger.debug("[session:%s] ui_schema updated by repair.", session.session_id)
-            if "auth_schema" in updated:
-                session.auth_schema = updated["auth_schema"]
-                logger.debug("[session:%s] auth_schema updated by repair.", session.session_id)
+            if not isinstance(updated, dict):
+                logger.warning(
+                    "[session:%s] Repair returned non-dict updated_schemas (type=%s). Ignoring.",
+                    session.session_id, type(updated).__name__,
+                )
+                updated = {}
+            elif set(updated.keys()) == {"schema"}:
+                logger.warning(
+                    "[session:%s] Repair returned updated_schemas wrapped under 'schema' key "
+                    "(wrong format) — skipping merge to preserve valid original schemas.",
+                    session.session_id,
+                )
+                updated = {}
+
+            for key in {"db_schema", "api_schema", "ui_schema", "auth_schema"} & updated.keys():
+                value = updated[key]
+                if isinstance(value, dict):
+                    setattr(session, key, value)
+                    logger.debug("[session:%s] %s updated by repair.", session.session_id, key)
+                else:
+                    logger.warning(
+                        "[session:%s] Repair returned non-dict for %s (type=%s). Skipping.",
+                        session.session_id, key, type(value).__name__,
+                    )
             # Rebuild all_schemas_json for next validation pass
             return result
+
 
         await _run_stage(
             session, "repair",
@@ -1132,6 +1190,14 @@ async def run_pipeline(session: PipelineSession) -> None:
                 "api_outline": _outline(session.api_schema),
             },
         )
+        # Sanitize Mermaid diagrams before storing — fix LLM syntax mistakes
+        for key, hint in [
+            ("mermaid_pipeline", "flowchart"),
+            ("mermaid_er", "er"),
+            ("mermaid_sequence", "sequence"),
+        ]:
+            if key in result and result[key]:
+                result[key] = _sanitize_mermaid(result[key], diagram_hint=hint)
         session.log_output = result
         logger.info(
             "[session:%s] Logging complete. mermaid keys=%s",
@@ -1157,9 +1223,9 @@ async def run_pipeline(session: PipelineSession) -> None:
     log_out = session.log_output or {}
 
     mermaid = {
-        "pipeline_flow": log_out.get("mermaid_pipeline", ""),
-        "er_diagram": log_out.get("mermaid_er", ""),
-        "api_sequence": log_out.get("mermaid_sequence", ""),
+        "pipeline_flow": _sanitize_mermaid(log_out.get("mermaid_pipeline", ""), "flowchart"),
+        "er_diagram":    _sanitize_mermaid(log_out.get("mermaid_er",       ""), "er"),
+        "api_sequence":  _sanitize_mermaid(log_out.get("mermaid_sequence",  ""), "sequence"),
     }
 
     final_schema = {

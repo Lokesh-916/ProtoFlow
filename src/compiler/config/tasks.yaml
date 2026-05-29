@@ -160,6 +160,9 @@ task_generate_ui_schema:
     - Every role-gated view MUST reference a role defined in ArchitectureSchema.
     - Define navigation structure and routing (path, page title, role_required).
     - Define components per page with their type, props, and data source (API endpoint).
+    - If the user prompt mentions "sign up" or "register", you MUST include a /register page
+      with a registration form that maps to the user creation API endpoint.
+    - If the user prompt mentions "login", you MUST include a /login page.
 
     Respond only with valid JSON. No prose, no markdown fences, no explanation.
   expected_output: >
@@ -276,8 +279,26 @@ task_log_progress:
     API Outline (endpoint paths + methods): {api_outline}
 
     Create log entries with: stage name, latency, assumptions, conflicts, repair triggers.
-    Generate 3 valid Mermaid diagrams: 1) Pipeline flowchart showing repair/HITL triggers (mermaid_pipeline) 2) ER diagram from DB outline (mermaid_er) 3) Sequence diagram for primary entity API flow (mermaid_sequence).
-    For all Mermaid diagrams, apply a visually pleasing rust/orange theme matching the UI (e.g. using `%%{init: {'theme': 'base', 'themeVariables': { 'primaryColor': '#2a2520', 'primaryTextColor': '#f7f6f3', 'primaryBorderColor': '#e86d2a', 'lineColor': '#ef8a52'}}}%%`).
+
+    Generate 3 valid Mermaid diagrams:
+
+    1) mermaid_pipeline: Flowchart using "graph LR" showing stage order with latencies.
+       - Edge syntax: A -->|4235ms| B   (NO trailing > after the closing pipe)
+       - ✅ Correct: A -->|4235ms| B
+       - ❌ Wrong:   A -->|4235ms|> B
+       - Use style keyword freely in flowcharts.
+
+    2) mermaid_er: ER diagram using "erDiagram" syntax.
+       - DO NOT use the "style" keyword — erDiagram does not support it.
+       - Only use entity blocks and relationship lines.
+
+    3) mermaid_sequence: Sequence diagram using "sequenceDiagram" syntax.
+       - DO NOT use the "style" keyword — sequenceDiagram does not support it.
+       - Only use participant, ->> and -->> arrow syntax.
+
+    Apply the ProtoFlow theme via the init directive:
+    %%{init: {'theme': 'base', 'themeVariables': { 'primaryColor': '#2a2520', 'primaryTextColor': '#f7f6f3', 'primaryBorderColor': '#e86d2a', 'lineColor': '#ef8a52'}}}%%
+
     Respond only with valid JSON.
   expected_output: >
     Valid JSON: log_entries [objects], mermaid_pipeline (string), mermaid_er (string), mermaid_sequence (string).
