@@ -844,19 +844,25 @@ async def run_pipeline(session: PipelineSession) -> None:
             session.session_id, confidence, len(result.get("assumptions", [])),
         )
 
-        # HITL is always-on — build question based on confidence
-        if confidence < 0.75:
-            questions = [
+        # HITL is always-on: prefer the LLM's own questions from hitl_required.questions
+        # (the agent generates context-specific questions); fall back to hardcoded only
+        # if the LLM didn't populate that field.
+        llm_questions = []
+        hitl_field = result.get("hitl_required", {})
+        if isinstance(hitl_field, dict):
+            llm_questions = hitl_field.get("questions", [])
+
+        if confidence < 0.75 or not llm_questions:
+            # Low confidence or no LLM questions — use targeted hardcoded questions
+            questions = llm_questions or [
                 "What is the primary purpose of this application?",
                 "Who are the main user types and what can each do?",
                 "Are there any premium or paid features?",
             ]
             trigger = "low_confidence"
         else:
-            questions = [
-                f"I'm assuming {result.get('app_type', 'a web app')} with "
-                f"JWT auth and a REST API — does that work for you?"
-            ]
+            # High confidence — use LLM's confirmatory question
+            questions = llm_questions[:1]  # typically 1 confirmatory question
             trigger = "always_on"
 
         answers = await _wait_for_hitl(

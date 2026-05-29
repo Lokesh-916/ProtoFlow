@@ -1,4 +1,4 @@
-# ProtoFlow Agent Definitions
+﻿# ProtoFlow Agent Definitions
 # All agents use Groq via crewai LiteLLM routing.
 # Model: llama-3.3-70b-versatile on Groq free tier
 #
@@ -33,6 +33,7 @@ intent_extractor:
   max_rpm: 5
   memory: false
   cache: false
+  temperature: 0.1
 
 system_architect:
   role: >
@@ -52,6 +53,7 @@ system_architect:
   max_rpm: 5
   memory: false
   cache: false
+  temperature: 0.1
 
 db_schema_agent:
   role: >
@@ -71,6 +73,7 @@ db_schema_agent:
   max_rpm: 5
   memory: false
   cache: false
+  temperature: 0.1
 
 api_schema_agent:
   role: >
@@ -89,6 +92,7 @@ api_schema_agent:
   max_rpm: 5
   memory: false
   cache: false
+  temperature: 0.1
 
 ui_schema_agent:
   role: >
@@ -108,6 +112,7 @@ ui_schema_agent:
   max_rpm: 5
   memory: false
   cache: false
+  temperature: 0.1
 
 auth_agent:
   role: >
@@ -127,6 +132,7 @@ auth_agent:
   max_rpm: 5
   memory: false
   cache: false
+  temperature: 0.1
 
 validator_agent:
   role: >
@@ -146,6 +152,7 @@ validator_agent:
   max_rpm: 5
   memory: false
   cache: false
+  temperature: 0.1
 
 repair_agent:
   role: >
@@ -166,6 +173,7 @@ repair_agent:
   max_rpm: 5
   memory: false
   cache: false
+  temperature: 0.1
 
 runtime_validator:
   role: >
@@ -186,6 +194,7 @@ runtime_validator:
   max_rpm: 5
   memory: false
   cache: false
+  temperature: 0.1
 
 progress_logger:
   role: >
@@ -205,4 +214,6 @@ progress_logger:
   max_rpm: 5
   memory: false
   cache: false
+  temperature: 0.2
+
 

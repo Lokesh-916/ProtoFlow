@@ -423,6 +423,9 @@ async def result(session_id: str):
             "repair_count": session.repair_count,
             "hitl_count": session.hitl_count,
             "stage_latencies": session.stage_latencies,
+            # Groq llama-3.3-70b-versatile: ~$0.59/M tokens (input+output blended)
+            # This is an approximation for cost vs quality tradeoff analysis.
+            "estimated_cost_usd": round(session.total_tokens * 0.00000059, 6),
         },
     }
 
