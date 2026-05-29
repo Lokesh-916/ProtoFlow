@@ -37,6 +37,7 @@ from pydantic import BaseModel
 from sse_starlette.sse import EventSourceResponse
 
 from compiler.schemas.contracts import ClarifyRequest, ModifyRequest
+from compiler.crew import _sanitize_mermaid
 
 # ── Load .env before anything else ───────────────────────────────────────────
 load_dotenv()
@@ -406,9 +407,15 @@ async def result(session_id: str):
         "repair_report": session.repair_report,
         "runtime_report": session.runtime_report,
         "mermaid_diagrams": {
-            "pipeline_flow": (session.log_output or {}).get("mermaid_pipeline", ""),
-            "er_diagram": (session.log_output or {}).get("mermaid_er", ""),
-            "api_sequence": (session.log_output or {}).get("mermaid_sequence", ""),
+            "pipeline_flow": _sanitize_mermaid(
+                (session.log_output or {}).get("mermaid_pipeline", ""), "flowchart"
+            ),
+            "er_diagram": _sanitize_mermaid(
+                (session.log_output or {}).get("mermaid_er", ""), "er"
+            ),
+            "api_sequence": _sanitize_mermaid(
+                (session.log_output or {}).get("mermaid_sequence", ""), "sequence"
+            ),
         },
         "eval_metrics": {
             "total_latency_ms": session.elapsed_ms(),

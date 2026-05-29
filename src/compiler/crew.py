@@ -1038,9 +1038,14 @@ async def run_pipeline(session: PipelineSession) -> None:
             "groq/llama-3.3-70b-versatile", _stage_validate()
         )
 
-        if validation.get("is_valid", False):
+        # Derive validity from the errors array, not the LLM's is_valid flag.
+        # The LLM sometimes says is_valid=true while still listing errors —
+        # treating the errors array as authoritative prevents false early exits.
+        effective_is_valid = len(validation.get("errors", [])) == 0
+        if effective_is_valid:
             logger.info(
-                "[session:%s] Schemas valid after attempt %d.", session.session_id, attempt
+                "[session:%s] Schemas valid after attempt %d (0 errors).",
+                session.session_id, attempt,
             )
             break
 
@@ -1083,7 +1088,15 @@ async def run_pipeline(session: PipelineSession) -> None:
                 "task_repair_schemas",
                 {
                     "validation_report": _compact(session.validation_report),
-                    "all_schemas": all_schemas_json,
+                    # Repair needs _compact (field-level detail) not _outline
+                    # (name-only) because the repair agent must patch specific
+                    # column constraints, endpoint validation rules, etc.
+                    "all_schemas": _compact({
+                        "db_schema": session.db_schema,
+                        "api_schema": session.api_schema,
+                        "ui_schema": session.ui_schema,
+                        "auth_schema": session.auth_schema,
+                    }),
                     "repair_attempt_number": attempt,
                     "user_prompt": session.prompt,
                 },

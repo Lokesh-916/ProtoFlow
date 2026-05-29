@@ -216,9 +216,12 @@ task_validate_schemas:
     Check: 1) API fields match DB columns 2) UI forms map to API inputs 3) Roles in UI/API exist in Auth 4) Protected endpoints have Auth permissions 5) Every Architecture entity has a DB table 6) Every table has API endpoints 7) Premium gating matches business rules 8) No circular deps 9) No orphans 10) Required fields (id, created_at, updated_at) exist 11) FK references are valid.
 
     Output: is_valid (bool), errors[], warnings[], conflicts[], validated_at.
+    CRITICAL RULE: is_valid MUST be false if errors[] is non-empty. is_valid MUST be true ONLY if errors[] is empty.
     Respond only with valid JSON.
   expected_output: >
-    Valid ValidationReport JSON: is_valid (bool), errors [{layer,field,description}], warnings [{layer,field,description}], conflicts [{description,resolution_strategy}], validated_at (ISO timestamp).
+    Valid ValidationReport JSON: is_valid (bool — false if ANY errors, true only if errors=[]),
+    errors [{layer,field,description}], warnings [{layer,field,description}],
+    conflicts [{description,resolution_strategy}], validated_at (ISO timestamp).
   agent: validator_agent
   context:
     - task_generate_db_schema
@@ -229,19 +232,38 @@ task_validate_schemas:
 
 task_repair_schemas:
   description: >
-    Fix errors from ValidationReport. Only triggered when is_valid is False.
+    Fix SPECIFIC errors from the ValidationReport by making targeted patches to the existing schemas.
     
     User Prompt: {user_prompt}
-    All Schemas: {all_schemas}
-    Validation Report: {validation_report}
     Repair Attempt Number: {repair_attempt_number}
 
-    For each error: identify source-of-truth layer, fix ONLY the broken layer, produce before/after diff.
-    Max 3 attempts. Each must fix ≥1 new error. If same error persists after 2 attempts, escalate to HITL.
-    Return updated schemas for modified layers plus repair report.
+    IMPORTANT — the schemas below are the FULL current schemas, NOT empty.
+    Do NOT generate new schemas from scratch. Only make surgical patches to fix the listed errors.
+
+    Current All Schemas (full detail): {all_schemas}
+    Validation Report (errors to fix): {validation_report}
+
+    For each error in validation_report.errors:
+      - Identify which layer needs changing (DB, API, or UI)
+      - Make the smallest targeted change to fix that specific error
+      - Record before/after in repairs[]
+
+    CRITICAL — updated_schemas format MUST be:
+    {
+      "updated_schemas": {
+        "db_schema": { ...full updated db_schema... },
+        "api_schema": { ...full updated api_schema... }
+      }
+    }
+    Only include layers you actually changed. Keys MUST be "db_schema", "api_schema", "ui_schema", or "auth_schema".
+    DO NOT use a key called "schema". DO NOT return OpenAPI JSON Schema format.
+    Return the complete updated layer(s), not just the changed fields.
+
     Respond only with valid JSON.
   expected_output: >
-    Valid RepairReport JSON: repairs [{error_description,layer_fixed,field_fixed,before,after}], updated_schemas {layer_name: full_schema}, repair_attempt_number (int), unresolved_errors [strings].
+    Valid RepairReport JSON: repairs [{error_description, layer_fixed, field_fixed, before, after}],
+    updated_schemas {db_schema?: full_schema, api_schema?: full_schema, ui_schema?: full_schema, auth_schema?: full_schema},
+    repair_attempt_number (int), unresolved_errors [strings].
   agent: repair_agent
   context:
     - task_validate_schemas
