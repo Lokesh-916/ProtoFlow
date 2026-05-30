@@ -1,3 +1,11 @@
+---
+title: ProtoFlow API
+emoji: 🚀
+colorFrom: blue
+colorTo: indigo
+sdk: docker
+pinned: false
+---
 # ProtoFlow — AI Software Compiler
 
 > **Natural language → structured config → validated → executable application schema**
