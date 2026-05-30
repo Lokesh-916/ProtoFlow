@@ -61,9 +61,11 @@ HITL_TIMEOUT_SECONDS = int(os.getenv("HITL_TIMEOUT_SECONDS", "300"))
 
 import random
 # Load all available Groq API keys from env
-GROQ_KEYS = [v for k, v in os.environ.items() if k.startswith("GROQ_API_KEY") and v.strip()]
-if not GROQ_KEYS and os.environ.get("GROQ_API_KEY"):
-    GROQ_KEYS = [os.environ.get("GROQ_API_KEY")]
+GROQ_KEYS = []
+for k, v in os.environ.items():
+    if k.startswith("GROQ_API_KEY") and v.strip():
+        GROQ_KEYS.extend([key.strip() for key in v.split(",") if key.strip()])
+GROQ_KEYS = list(set(GROQ_KEYS))
 
 
 # ── Schema compaction ─────────────────────────────────────────────────────────
