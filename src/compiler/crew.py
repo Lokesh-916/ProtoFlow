@@ -691,42 +691,53 @@ async def run_pipeline(session: PipelineSession) -> None:
             session.session_id, task_name, agent_name,
         )
 
-        # Instantiate agent via the @agent method on the crew class
-        agent = None
-        if agent_name and isinstance(agent_name, str):
-            agent_creator = getattr(crew_instance, agent_name, None)
-            if callable(agent_creator):
-                agent = agent_creator()
-                logger.debug("[session:%s] Agent instantiated: %s", session.session_id, agent_name)
-            else:
-                logger.warning(
-                    "[session:%s] No @agent method found for name=%r on ProtoFlowCrew",
-                    session.session_id, agent_name,
-                )
-        else:
-            logger.warning(
-                "[session:%s] agent_name is not a string: %r (type=%s). "
-                "Check tasks.yaml for task '%s'.",
-                session.session_id, agent_name, type(agent_name).__name__, task_name,
-            )
-
-        # Instantiate task via the @task method
-        task_creator = getattr(crew_instance, task_name, None)
-        if not callable(task_creator):
-            raise ValueError(f"No @task method found for '{task_name}' on ProtoFlowCrew")
-        task_obj = task_creator()
-
-        # Assign agent to task (overrides YAML assignment for single-task crew)
-        if agent:
-            task_obj.agent = agent
-
         # Run in a thread pool to avoid blocking the event loop
         loop = asyncio.get_running_loop()
         
         max_retries = 5
         result = None
         for attempt in range(max_retries):
-            # Re-initialize temp_crew in case the agent's LLM was modified (e.g. fallback)
+            # Instantiate agent via the @agent method on the crew class
+            agent = None
+            if agent_name and isinstance(agent_name, str):
+                agent_creator = getattr(crew_instance, agent_name, None)
+                if callable(agent_creator):
+                    agent = agent_creator()
+                    logger.debug("[session:%s] Agent instantiated: %s", session.session_id, agent_name)
+                else:
+                    logger.warning(
+                        "[session:%s] No @agent method found for name=%r on ProtoFlowCrew",
+                        session.session_id, agent_name,
+                    )
+            else:
+                logger.warning(
+                    "[session:%s] agent_name is not a string: %r (type=%s). "
+                    "Check tasks.yaml for task '%s'.",
+                    session.session_id, agent_name, type(agent_name).__name__, task_name,
+                )
+
+            # Instantiate task via the @task method
+            task_creator = getattr(crew_instance, task_name, None)
+            if not callable(task_creator):
+                raise ValueError(f"No @task method found for '{task_name}' on ProtoFlowCrew")
+            task_obj = task_creator()
+
+            # Assign agent to task
+            if agent:
+                task_obj.agent = agent
+
+            # Apply any previously rotated API key from attempt > 0
+            if attempt > 0 and len(GROQ_KEYS) > 1:
+                # We rotate keys below when catching the exception. For attempt > 0, 
+                # we want to ensure the agent uses a random key from the pool.
+                new_key = random.choice(GROQ_KEYS)
+                if agent and agent.llm:
+                    temp = agent.llm.temperature if hasattr(agent.llm, 'temperature') else 0.1
+                    model_name = agent.llm.model
+                    if not model_name.startswith("groq/"):
+                        model_name = f"groq/{model_name}"
+                    agent.llm = LLM(model=model_name, temperature=temp, api_key=new_key)
+
             temp_crew = Crew(
                 agents=[agent] if agent else [],
                 tasks=[task_obj],
