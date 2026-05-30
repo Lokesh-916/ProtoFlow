@@ -234,7 +234,7 @@ export default function ResultsPage() {
             </div>
 
             {/* Modification history */}
-            {result?.modification_history && Array.isArray(result.modification_history) && result.modification_history.length > 0 ? (
+            {!!(result?.modification_history && Array.isArray(result.modification_history) && result.modification_history.length > 0) ? (
               <div className="rounded-2xl border border-canvas-800 bg-canvas-900/60 p-5">
                 <h3 className="text-xs font-semibold text-canvas-500 uppercase tracking-widest mb-3">Mid-Run Modifications Applied</h3>
                 <div className="space-y-3">
