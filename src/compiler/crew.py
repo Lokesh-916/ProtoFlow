@@ -759,6 +759,7 @@ async def run_pipeline(session: PipelineSession) -> None:
 
                     # If not a request size limit, it's a TPD limit or standard TPM timeout.
                     # Rotate API key if we have multiple keys available.
+                    rotated = False
                     if len(GROQ_KEYS) > 1:
                         new_key = random.choice(GROQ_KEYS)
                         logger.warning(
@@ -769,7 +770,11 @@ async def run_pipeline(session: PipelineSession) -> None:
                             # Re-instantiate LLM with new API key
                             temp = agent.llm.temperature if hasattr(agent.llm, 'temperature') else 0.1
                             agent.llm = LLM(model=agent.llm.model, temperature=temp, api_key=new_key)
-                        continue # Try immediately with new key
+                        
+                        # Only retry immediately if we haven't exhausted all our keys
+                        if attempt < len(GROQ_KEYS):
+                            continue
+                        rotated = True
 
                     if attempt < max_retries - 1:
                         # Parse "Please try again in 21.665s." or fallback to 30s
