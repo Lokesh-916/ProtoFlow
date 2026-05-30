@@ -984,6 +984,8 @@ async def run_pipeline(session: PipelineSession) -> None:
         t_start = time.monotonic()
         result = await task_coro()
         latency_ms = int((time.monotonic() - t_start) * 1000)
+        # Record to session so stage_latencies in eval_metrics is complete
+        session.stage_latencies[stage_name] = latency_ms
         await _emit(session, "stage_update", {
             "stage": stage_name, "status": "complete",
             "model": model, "latency_ms": latency_ms,
@@ -1044,11 +1046,18 @@ async def run_pipeline(session: PipelineSession) -> None:
             "groq/llama-3.3-70b-versatile", _stage_validate()
         )
 
-        # Derive validity from the errors array, not the LLM's is_valid flag.
-        # The LLM sometimes says is_valid=true while still listing errors —
-        # treating the errors array as authoritative prevents false early exits.
-        effective_is_valid = len(validation.get("errors", [])) == 0
-        if effective_is_valid:
+        # Derive validity from errors array — LLM's is_valid flag is unreliable.
+        # Also treat empty {} as a parse failure (validator didn't return a proper report).
+        errors = validation.get("errors", [])
+        is_empty_report = not validation or (not errors and not validation.get("warnings") and not validation.get("validated_at"))
+        effective_is_valid = len(errors) == 0 and not is_empty_report
+
+        if is_empty_report:
+            logger.warning(
+                "[session:%s] Validation returned empty report on attempt %d — treating as failed parse, triggering repair.",
+                session.session_id, attempt,
+            )
+        elif effective_is_valid:
             logger.info(
                 "[session:%s] Schemas valid after attempt %d (0 errors).",
                 session.session_id, attempt,
@@ -1199,14 +1208,14 @@ async def run_pipeline(session: PipelineSession) -> None:
         result = await _kickoff_task(
             "task_log_progress",
             {
-                # Logging only needs stage metrics + minimal schema outline for Mermaid
+                # Include all stage latencies (schema stages now tracked too)
                 "stage_latencies": json.dumps(session.stage_latencies),
                 "repair_count": session.repair_count,
                 "hitl_count": session.hitl_count,
-                "user_prompt": session.prompt[:200],  # truncate long modified prompts
+                "user_prompt": session.prompt[:200],
                 "session_id": session.session_id,
-                "db_outline": _outline(session.db_schema),
-                "api_outline": _outline(session.api_schema),
+                "db_outline": _outline(session.db_schema) if session.db_schema else "No DB schema generated",
+                "api_outline": _outline(session.api_schema) if session.api_schema else "No API schema generated",
             },
         )
         # Sanitize Mermaid diagrams before storing — fix LLM syntax mistakes

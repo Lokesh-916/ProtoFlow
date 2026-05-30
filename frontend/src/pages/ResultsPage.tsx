@@ -94,6 +94,13 @@ export default function ResultsPage() {
   const assumptions = ((result?.intent as Record<string, unknown>)?.assumptions ?? []) as string[];
   const conflicts = (validation?.conflicts ?? []) as Array<{ description: string; resolution_strategy: string }>;
 
+  // Derive validity from errors array — the LLM's is_valid flag is unreliable.
+  // A report is "real" if it has a validated_at timestamp or at least one error/warning.
+  const validationErrors = (validation?.errors as unknown[]) ?? [];
+  const validationWarnings = (validation?.warnings as unknown[]) ?? [];
+  const hasRealReport = Boolean(validation?.validated_at || validationErrors.length > 0 || validationWarnings.length > 0);
+  const validationPassed = hasRealReport && validationErrors.length === 0;
+
   return (
     <div className="h-screen bg-canvas-950 bg-noise flex flex-col overflow-hidden">
 
@@ -169,15 +176,23 @@ export default function ResultsPage() {
         {tab === "validation" && (
           <div className="max-w-3xl mx-auto space-y-4">
             <div className={`flex items-center gap-3 p-4 rounded-2xl border ${
-              validation?.is_valid
-                ? "border-sage-600/40 bg-sage-600/5"
-                : "border-rose-600/40 bg-rose-600/5"
+              !hasRealReport
+                ? "border-canvas-700/40 bg-canvas-800/30"
+                : validationPassed
+                  ? "border-sage-600/40 bg-sage-600/5"
+                  : "border-rose-600/40 bg-rose-600/5"
             }`}>
-              {validation?.is_valid
-                ? <CheckCircle2 className="w-5 h-5 text-sage-400" />
-                : <XCircle className="w-5 h-5 text-rose-400" />}
+              {!hasRealReport
+                ? <span className="w-5 h-5 text-canvas-500">○</span>
+                : validationPassed
+                  ? <CheckCircle2 className="w-5 h-5 text-sage-400" />
+                  : <XCircle className="w-5 h-5 text-rose-400" />}
               <span className="font-semibold text-sm text-canvas-200">
-                {validation?.is_valid ? "All schemas are consistent" : "Validation errors found"}
+                {!hasRealReport
+                  ? "Validation report not yet available"
+                  : validationPassed
+                    ? `All schemas are consistent (${validationWarnings.length} warning${validationWarnings.length !== 1 ? 's' : ''})`
+                    : `${validationErrors.length} error${validationErrors.length !== 1 ? 's' : ''} found`}
               </span>
             </div>
             <SchemaViewer data={result?.validation_report} title="Validation Report" />
