@@ -66,6 +66,8 @@ for k, v in os.environ.items():
     if k.startswith("GROQ_API_KEY") and v.strip():
         GROQ_KEYS.extend([key.strip() for key in v.split(",") if key.strip()])
 GROQ_KEYS = list(set(GROQ_KEYS))
+if GROQ_KEYS:
+    os.environ["GROQ_API_KEY"] = GROQ_KEYS[0]
 
 
 # ── Schema compaction ─────────────────────────────────────────────────────────
