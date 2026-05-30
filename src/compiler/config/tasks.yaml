@@ -213,7 +213,16 @@ task_validate_schemas:
     User Prompt: {user_prompt}
     All Schemas: {all_schemas}
 
-    Check: 1) API fields match DB columns 2) UI forms map to API inputs 3) Roles in UI/API exist in Auth 4) Protected endpoints have Auth permissions 5) Every Architecture entity has a DB table 6) Every table has API endpoints 7) Premium gating matches business rules 8) No circular deps 9) No orphans 10) Required fields (id, created_at, updated_at) exist 11) FK references are valid.
+    ANTI-HALLUCINATION RULE (check this FIRST before all others):
+    Every error you report MUST reference a table name, column name, endpoint path, or page path
+    that LITERALLY EXISTS in the all_schemas JSON above. Do NOT invent or assume the existence of
+    any table, column, endpoint, or field that is not explicitly present in the provided schemas.
+    If you cannot find it in the JSON, do not report an error about it.
+
+    Check: 1) API fields match DB columns 2) UI forms map to API inputs 3) Roles in UI/API exist in Auth
+    4) Protected endpoints have Auth permissions 5) Every Architecture entity has a DB table
+    6) Every table has API endpoints 7) Premium gating matches business rules 8) No circular deps
+    9) No orphans 10) Required fields (id, created_at, updated_at) exist 11) FK references are valid.
 
     Output: is_valid (bool), errors[], warnings[], conflicts[], validated_at.
     CRITICAL RULE: is_valid MUST be false if errors[] is non-empty. is_valid MUST be true ONLY if errors[] is empty.
@@ -247,6 +256,12 @@ task_repair_schemas:
       - Identify which layer needs changing (DB, API, or UI)
       - Make the smallest targeted change to fix that specific error
       - Record before/after in repairs[]
+
+    ANTI-HALLUCINATION RULE: Before attempting to fix each error, verify that the table/column/endpoint
+    referenced in the error ACTUALLY EXISTS in the all_schemas JSON. If it does NOT exist
+    (the validator made a mistake), add it to unresolved_errors with a note:
+    "Skipped: referenced table/field not found in schema — likely validator hallucination."
+    Do NOT invent new tables or columns to fix ghost errors.
 
     CRITICAL — updated_schemas format MUST be:
     {
