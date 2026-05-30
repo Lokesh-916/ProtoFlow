@@ -257,7 +257,7 @@ export default function ResultsPage() {
             )}
 
             {/* Final effective prompt */}
-            {result?.modification_history && Array.isArray(result.modification_history) && (result.modification_history as unknown[]).length > 0 && (
+            {!!(result?.modification_history && Array.isArray(result.modification_history) && (result.modification_history as any[]).length > 0) && (
               <div className="rounded-2xl border border-canvas-800 bg-canvas-900/60 p-5">
                 <h3 className="text-xs font-semibold text-canvas-500 uppercase tracking-widest mb-3">Final Effective Prompt</h3>
                 <p className="text-sm text-canvas-300 whitespace-pre-wrap font-mono text-xs leading-relaxed">{result?.prompt as string}</p>
