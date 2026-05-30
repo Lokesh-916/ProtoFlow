@@ -767,9 +767,12 @@ async def run_pipeline(session: PipelineSession) -> None:
                             session.session_id, task_name
                         )
                         if agent and agent.llm:
-                            # Re-instantiate LLM with new API key
+                            # Re-instantiate LLM with new API key, ensure 'groq/' prefix
                             temp = agent.llm.temperature if hasattr(agent.llm, 'temperature') else 0.1
-                            agent.llm = LLM(model=agent.llm.model, temperature=temp, api_key=new_key)
+                            model_name = agent.llm.model
+                            if not model_name.startswith("groq/"):
+                                model_name = f"groq/{model_name}"
+                            agent.llm = LLM(model=model_name, temperature=temp, api_key=new_key)
                         
                         # Only retry immediately if we haven't exhausted all our keys
                         if attempt < len(GROQ_KEYS):
@@ -777,15 +780,25 @@ async def run_pipeline(session: PipelineSession) -> None:
                         rotated = True
 
                     if attempt < max_retries - 1:
-                        # Parse "Please try again in 21.665s." or fallback to 30s
+                        # Parse "Please try again in 1h5m21.665s." or "21.665s."
                         wait_time = 30.0
-                        match = re.search(r'try again in (?:(\d+)m)?([\d\.]+)s', err_str)
+                        match = re.search(r'try again in (?:(\d+)h)?(?:(\d+)m)?([\d\.]+)s', err_str)
                         if match:
-                            m_str = match.group(1)
-                            s_str = match.group(2)
+                            h_str = match.group(1)
+                            m_str = match.group(2)
+                            s_str = match.group(3)
+                            hours = int(h_str) if h_str else 0
                             minutes = int(m_str) if m_str else 0
                             seconds = float(s_str)
-                            wait_time = (minutes * 60) + seconds + 2.0  # 2s buffer
+                            wait_time = (hours * 3600) + (minutes * 60) + seconds + 2.0  # 2s buffer
+                        
+                        if wait_time > 120.0:
+                            logger.error(
+                                "[session:%s] Rate limit wait time too long (%.1fs). Failing task.",
+                                session.session_id, wait_time
+                            )
+                            raise e
+
                         logger.warning(
                             "[session:%s] Rate limit hit for %s. Sleeping %.1fs before attempt %d. Error: %s",
                             session.session_id, task_name, wait_time, attempt + 2, err_str.split('"message":')[1].split(',"type"')[0] if '"message":' in err_str else err_str[:100]
