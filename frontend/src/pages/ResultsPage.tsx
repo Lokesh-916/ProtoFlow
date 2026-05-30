@@ -234,11 +234,11 @@ export default function ResultsPage() {
             </div>
 
             {/* Modification history */}
-            {Boolean(result?.modification_history && Array.isArray(result.modification_history) && result.modification_history.length > 0) ? (
+            {result?.modification_history && Array.isArray(result.modification_history) && result.modification_history.length > 0 ? (
               <div className="rounded-2xl border border-canvas-800 bg-canvas-900/60 p-5">
                 <h3 className="text-xs font-semibold text-canvas-500 uppercase tracking-widest mb-3">Mid-Run Modifications Applied</h3>
                 <div className="space-y-3">
-                  {(result.modification_history as Array<{modification: string; applied_at_stage: string}>).map((mod, i) => (
+                  {(result.modification_history as any[]).map((mod: any, i: number) => (
                     <div key={i} className="rounded-xl border border-sage-600/20 bg-sage-600/5 p-4">
                       <div className="flex items-center gap-2 mb-2">
                         <CheckCircle2 className="w-3.5 h-3.5 text-sage-400 flex-shrink-0" />
