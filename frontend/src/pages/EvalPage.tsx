@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useRef } from "react";
 import { useNavigate } from "react-router-dom";
 import {
-  Cpu, Play, CheckCircle2, AlertTriangle, XCircle, HelpCircle,
+  Play, CheckCircle2, AlertTriangle, XCircle, HelpCircle,
   FileDown, RefreshCw, BarChart3, Coins, Layers,
   Loader2, Filter, AlertCircle, Info, ExternalLink
 } from "lucide-react";

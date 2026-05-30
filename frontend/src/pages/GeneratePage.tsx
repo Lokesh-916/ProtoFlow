@@ -1,6 +1,6 @@
 import { useState, useCallback, useEffect, useRef } from "react";
 import { useNavigate, useSearchParams } from "react-router-dom";
-import { Cpu, Terminal, ArrowRight, Pencil, CheckCircle2, AlertTriangle, X, Send } from "lucide-react";
+import { Terminal, ArrowRight, Pencil, CheckCircle2, AlertTriangle, X, Send } from "lucide-react";
 import PipelineProgress, { type StageState } from "../components/PipelineProgress";
 import HITLModal from "../components/HITLModal";
 import LogViewer from "../components/LogViewer";

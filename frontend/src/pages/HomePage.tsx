@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { Cpu, ArrowRight, Zap, Database, Shield, GitMerge, Loader2 } from "lucide-react";
+import { ArrowRight, Zap, Database, Shield, GitMerge, Loader2 } from "lucide-react";
 import { startPipeline } from "../api/client";
 
 const EXAMPLES = [
