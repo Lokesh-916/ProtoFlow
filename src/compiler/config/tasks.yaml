@@ -62,6 +62,14 @@ task_design_architecture:
     - business_rules[]: premium gating, admin-only views, plan restrictions
     - data_flows[]: how data moves between layers
 
+    RELATION MINIMALISM RULE:
+    Only add many-to-many relationships when EXPLICITLY stated in the user's prompt
+    (e.g., "multiple users can collaborate on the same task"). Do NOT add speculative
+    junction tables. For single-owner apps where each resource belongs to one user
+    (projects.user_id FK, tasks.project_id FK), the FK chain is sufficient — a separate
+    users_tasks junction is unnecessary and creates downstream validation errors when no
+    API endpoints exist for it.
+
     Consider all assumptions documented by intent_extractor before designing.
 
     If any architectural decision has more than two equally valid approaches

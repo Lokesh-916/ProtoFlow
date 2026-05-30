@@ -1008,6 +1008,10 @@ async def run_pipeline(session: PipelineSession) -> None:
     # ─────────────────────────────────────────────────────────────────────────
     # STAGE 4 + 5 — Validation + Repair loop
     # ─────────────────────────────────────────────────────────────────────────
+    # Track the best (most complete) validation report seen across all attempts.
+    # If a later validation returns {} (parse failure), we keep the best one.
+    _best_validation: dict = {}
+
     for attempt in range(1, MAX_REPAIR_LOOPS + 1):
         # Use _outline() (ultra-compact) rather than _compact() for all_schemas.
         # Validation only needs structural info (table names, endpoint paths, roles) —
@@ -1052,6 +1056,19 @@ async def run_pipeline(session: PipelineSession) -> None:
         is_empty_report = not validation or (not errors and not validation.get("warnings") and not validation.get("validated_at"))
         effective_is_valid = len(errors) == 0 and not is_empty_report
 
+        # Track the best validation report — prefer a real report with content over {}.
+        # This ensures session.validation_report is always the most informative result
+        # even if a later parse attempt returns empty.
+        if not is_empty_report and len(errors) + len(validation.get("warnings", [])) > len(
+            _best_validation.get("errors", []) + _best_validation.get("warnings", [])
+        ):
+            _best_validation = validation
+        if not is_empty_report and not _best_validation:
+            _best_validation = validation
+        # Always expose the best known report in session
+        if _best_validation:
+            session.validation_report = _best_validation
+
         if is_empty_report:
             logger.warning(
                 "[session:%s] Validation returned empty report on attempt %d — treating as failed parse, triggering repair.",
@@ -1080,7 +1097,8 @@ async def run_pipeline(session: PipelineSession) -> None:
         })
 
         # If same errors persist after 2 attempts, escalate to HITL
-        if attempt >= 2:
+        # Only escalate on real errors — not on empty reports (those are parse failures).
+        if attempt >= 2 and not is_empty_report and errors:
             unresolved = [e.get("description", str(e)) for e in errors[:3]]
             logger.warning(
                 "[session:%s] Repair attempt %d — escalating to HITL. unresolved=%s",
@@ -1145,6 +1163,24 @@ async def run_pipeline(session: PipelineSession) -> None:
             for key in {"db_schema", "api_schema", "ui_schema", "auth_schema"} & updated.keys():
                 value = updated[key]
                 if isinstance(value, dict):
+                    # Guard against repair truncating schemas — only accept the
+                    # repaired version if it has at least as many top-level items
+                    # as the current session schema. This prevents the repair
+                    # agent from replacing a 12-endpoint api_schema with 4 endpoints.
+                    current = getattr(session, key, {}) or {}
+                    # Count representative items per schema type
+                    count_key = {"db_schema": "tables", "api_schema": "endpoints",
+                                 "ui_schema": "pages", "auth_schema": "roles"}.get(key)
+                    if count_key:
+                        current_count = len(current.get(count_key, []))
+                        repair_count = len(value.get(count_key, []))
+                        if repair_count < current_count:
+                            logger.warning(
+                                "[session:%s] Repair returned truncated %s "
+                                "(%d %s vs current %d) — skipping merge to preserve original.",
+                                session.session_id, key, repair_count, count_key, current_count,
+                            )
+                            continue
                     setattr(session, key, value)
                     logger.debug("[session:%s] %s updated by repair.", session.session_id, key)
                 else:
