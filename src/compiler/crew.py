@@ -786,6 +786,9 @@ async def run_pipeline(session: PipelineSession) -> None:
                 # If it's not a rate limit error, or we're out of retries, raise it
                 raise e
         
+        if result is None:
+            raise RuntimeError(f"Task '{task_name}' failed after {max_retries} retries due to rate limits or API errors.")
+
         # Token extraction
         if hasattr(result, 'token_usage'):
             usage = result.token_usage
@@ -804,9 +807,17 @@ async def run_pipeline(session: PipelineSession) -> None:
         # Unwrap nested dict if LLM wraps it in a stage name key (e.g. {"api_schema": {...}})
         if isinstance(parsed, dict) and len(parsed) == 1:
             first_key = list(parsed.keys())[0]
-            if first_key in ["db_schema", "api_schema", "ui_schema", "auth_schema"]:
-                logger.warning("[session:%s] Unwrapping nested LLM output %s", session.session_id, first_key)
-                parsed = parsed[first_key]
+            val = parsed[first_key]
+            wrapper_keys = {
+                "db_schema", "api_schema", "ui_schema", "auth_schema",
+                "validation_report", "repair_report", "runtime_report", "log_output",
+                "task_validate_runtime", "task_log_progress",
+                "schema", "result", "response", "output", "log_progress", "progress_log"
+            }
+            if first_key in wrapper_keys or first_key.endswith("_schema") or first_key.endswith("_report"):
+                if isinstance(val, dict):
+                    logger.warning("[session:%s] Unwrapping nested LLM dict %s", session.session_id, first_key)
+                    parsed = val
 
         # Wrap lists in expected root keys if LLM forgot the root object
         if isinstance(parsed, list):

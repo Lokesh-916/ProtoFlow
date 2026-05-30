@@ -301,10 +301,11 @@ task_validate_runtime:
 
     Verify: 1) API endpoints reference existing DB tables/columns 2) UI components have mapped API calls 3) Auth-protected routes have matching permissions.
     Simulate CRUD flow for the primary entity: CREATE (form→POST→INSERT), READ (list→GET→SELECT), UPDATE (edit→PUT→UPDATE), DELETE (button→DELETE→soft-delete).
-    Output execution_viable (bool), simulated_flows[], blocking_issues[], warnings[].
-    Respond only with valid JSON.
+    
+    CRITICAL JSON FORMATTING:
+    Respond ONLY with a single valid JSON object. Do NOT wrap the JSON in a markdown code block.
   expected_output: >
-    Valid RuntimeReport JSON: execution_viable (bool), simulated_flows [{name,steps[],result}], blocking_issues [strings], warnings [strings].
+    Valid JSON object with exact keys: "execution_viable" (bool), "simulated_flows" [{name,steps[],result}], "blocking_issues" [strings], "warnings" [strings].
   agent: runtime_validator
   context:
     - task_validate_schemas
@@ -344,9 +345,12 @@ task_log_progress:
     Apply the ProtoFlow theme via the init directive:
     %%{init: {'theme': 'base', 'themeVariables': { 'primaryColor': '#2a2520', 'primaryTextColor': '#f7f6f3', 'primaryBorderColor': '#e86d2a', 'lineColor': '#ef8a52'}}}%%
 
-    Respond only with valid JSON.
+    CRITICAL JSON FORMATTING:
+    Respond ONLY with a single valid JSON object. Do NOT wrap the JSON in a markdown code block.
+    For the Mermaid graphs, you MUST escape all newlines as \\n within the JSON strings to prevent parsing errors.
+
   expected_output: >
-    Valid JSON: log_entries [objects], mermaid_pipeline (string), mermaid_er (string), mermaid_sequence (string).
+    Valid JSON object with exact keys: "log_entries" (array of objects), "mermaid_pipeline" (string), "mermaid_er" (string), "mermaid_sequence" (string).
   agent: progress_logger
   context:
     - task_validate_runtime

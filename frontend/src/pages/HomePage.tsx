@@ -63,10 +63,10 @@ export default function HomePage() {
 
             {/* Headline */}
             <div className="space-y-3">
-              <h1 className="font-display text-5xl lg:text-6xl text-canvas-50 leading-tight">
+              <h1 className="font-pacifico text-5xl lg:text-6xl text-canvas-50 leading-tight">
                 Describe your app.
               </h1>
-              <h1 className="font-display text-5xl lg:text-6xl leading-tight text-gradient">
+              <h1 className="font-pacifico text-5xl lg:text-6xl leading-tight text-gradient">
                 Get the blueprint.
               </h1>
               <p className="text-canvas-400 text-lg leading-relaxed max-w-md mt-4">
